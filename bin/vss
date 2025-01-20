@@ -1,0 +1,32 @@
+#!/usr/bin/env zsh
+
+set -e
+
+# List all the available scripts in the parent directory, these are the scripts
+# that can be run.
+
+export VS_ROOT=$(dirname "$(dirname "$(realpath "$0")")")
+
+# Install all the prerequisites.
+. "${VS_ROOT}/.prerequisites"
+
+# Setup the environment.
+. "${VS_ROOT}/.aliases"
+
+# Parse any arguments passed before the script name.
+ARGS=()
+while (( $# > 0 )); do
+  case "$1" in
+    -r|--run)
+      # Run the script.
+      . "${VS_ROOT}/scripts/${2}"
+      exit 0
+      ;;
+    *)
+      ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+node "${VS_ROOT}/dist/main.js" "$ARGS"
