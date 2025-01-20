@@ -17,6 +17,15 @@ project while developing Next.js.
 2. Add the `./bin` directory to your `PATH` environment variable.
 3. Run `vss` from the root of the project to run the script selector.
 
+New scripts can be added by adding a new script file to the `scripts` directory
+and making it executable with `chmod +x <script-name>.sh`. Annotations with the
+`@vercel` prefix will be used to configure the script selector, refer to
+existing scripts for examples.
+
+Any arguments required by the script will be passed to the script via
+environment variables and persisted to the `args.json` file in the root of the
+vercel scripts directory.
+
 ## Available Scripts
 
 - `./scripts/build_next.sh` - Builds the Next.js project.

@@ -86,21 +86,12 @@ const main = async () => {
   // Persist the selected scripts to a file.
   await persistSelectedScripts(selected);
 
-  // Run the selected scripts synchronously in order.
-  let colorIndex = 0;
+  const args = await getPersistedArgs();
   for (const script of selected) {
-    // Rotate the colors for each script for ease of reading.
-    const color = availableColors[colorIndex];
-
-    // Get the script arguments if it's required.
-    const env: Record<string, string> = {};
     if (script.args && script.args.length > 0) {
-      const args = await getPersistedArgs();
       for (const arg of script.args) {
-        if (args[arg.name]) {
-          env[arg.name] = args[arg.name];
-          continue;
-        }
+        // If we already have the argument, skip it.
+        if (args[arg.name]) continue;
 
         const value = await fileSelector({
           message: `Enter a value for ${arg.name} - ${arg.description}`,
@@ -108,18 +99,37 @@ const main = async () => {
           basePath: os.homedir(),
         });
 
-        env[arg.name] = value;
         args[arg.name] = value;
       }
+    }
+  }
 
-      await persistArgs(args);
+  // If we have any args, persist them.
+  if (Object.keys(args).length > 0) {
+    await persistArgs(args);
+  }
+
+  // Run the selected scripts synchronously in order.
+  let colorIndex = 0;
+  for (const script of selected) {
+    // Rotate the colors for each script for ease of reading.
+    const color = availableColors[colorIndex];
+
+    // Get the script arguments if it's required.
+    const env: NodeJS.ProcessEnv = { ...process.env };
+    if (script.args && script.args.length > 0) {
+      for (const arg of script.args) {
+        if (args[arg.name]) {
+          env[arg.name] = args[arg.name];
+        }
+      }
     }
 
     console.log(color(`✨ Running ${script.name}...`));
     const child = spawn(
       path.resolve(import.meta.dirname, "..", "bin", "vss"),
       ["--run", script.pathname],
-      { shell: true, env: { ...process.env, ...env } }
+      { shell: true, env }
     );
 
     // Log the script's stdout and stderr.
