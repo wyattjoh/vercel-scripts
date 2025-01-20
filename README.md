@@ -13,8 +13,9 @@ project while developing Next.js.
 
 ## Setup
 
-1. Add the `./bin` directory to your `PATH` environment variable.
-2. Run `vss` from the root of the project to run the script selector.
+1. `pnpm install && pnpm build`
+2. Add the `./bin` directory to your `PATH` environment variable.
+3. Run `vss` from the root of the project to run the script selector.
 
 ## Available Scripts
 
