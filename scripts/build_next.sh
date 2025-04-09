@@ -7,5 +7,5 @@
 set -e
 
 pushd $VERCEL_NEXT_DIRECTORY
-  pnpm build
+  pnpm build --filter next
 popd
