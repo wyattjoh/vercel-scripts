@@ -29,7 +29,8 @@ vercel scripts directory.
 ## Available Scripts
 
 - `./scripts/build_next.sh` - Builds the Next.js project.
+- `./scripts/build_project.sh` - Builds the a project using the Vercel CLI.
 - `./scripts/build_vercel.sh` - Builds the Vercel CLI.
-- `./scripts/link_next.sh` - Link the local Next.js package as the project's dependency
-- `./scripts/build_project.sh` - Builds the Vercel project.
 - `./scripts/deploy_project.sh` - Deploys the Vercel project.
+- `./scripts/link_local_next.sh` - Link the local Next.js package as the project's dependency
+- `./scripts/package_next.sh` - Packages the Next.js project.
