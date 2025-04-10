@@ -9,4 +9,4 @@ set -e
 
 alias vercel="node ${VERCEL_VERCEL_DIRECTORY}/packages/cli/dist/index.js"
 
-vercel --prebuilt -f --prod
+vercel --prebuilt --force --prod
