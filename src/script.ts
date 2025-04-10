@@ -1,35 +1,69 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
 
-export type ScriptArg = {
-  name: string;
-  description: string;
-};
+const ScriptArgSchema = z.object({
+  /**
+   * The name of the argument.
+   */
+  name: z.string(),
 
-export type Script = {
-  name: string;
-  description: string | undefined;
+  /**
+   * The description of the argument.
+   */
+  description: z.string(),
+});
+
+export type ScriptArg = z.infer<typeof ScriptArgSchema>;
+
+const ScriptOptSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  type: z.enum(["boolean"]),
+  default: z.boolean(),
+});
+
+export type ScriptOpt = z.infer<typeof ScriptOptSchema>;
+
+const ScriptSchema = z.object({
+  /**
+   * The name of the script.
+   */
+  name: z.string(),
+
+  /**
+   * The description of the script.
+   */
+  description: z.string().optional(),
+
   /**
    * The scripts that should be run after this script. It will be a list of the
    * absolute paths to the scripts.
    */
-  afterAbsolutePathnames: string[] | undefined;
+  afterAbsolutePathnames: z.array(z.string()).optional(),
 
   /**
    * The absolute path to the script.
    */
-  absolutePathname: string;
+  absolutePathname: z.string(),
 
   /**
    * The relative path to the script.
    */
-  pathname: string;
+  pathname: z.string(),
 
   /**
    * The arguments that the script requires.
    */
-  args: ScriptArg[] | undefined;
-};
+  args: z.array(ScriptArgSchema).optional(),
+
+  /**
+   * The options that the script accepts.
+   */
+  opts: z.array(ScriptOptSchema).optional(),
+});
+
+export type Script = z.infer<typeof ScriptSchema>;
 
 function getScriptAttribute(
   content: string,
@@ -56,6 +90,21 @@ function getScriptArgs(content: string): ScriptArg[] | undefined {
   }
 
   return args;
+}
+
+function getScriptOpts(content: string): ScriptOpt[] | undefined {
+  const matches = content.matchAll(/@vercel\.opt\s+(?<json>.+)$/gm);
+
+  const opts: ScriptOpt[] = [];
+  for (const match of matches) {
+    if (!match.groups) {
+      continue;
+    }
+
+    opts.push(ScriptOptSchema.parse(JSON.parse(match.groups.json)));
+  }
+
+  return opts;
 }
 
 // Implement topological sort for dependency ordering
@@ -144,6 +193,7 @@ export async function getScripts(): Promise<Script[]> {
       const description = getScriptAttribute(content, "description");
       const after = getScriptAttribute(content, "after");
       const args = getScriptArgs(content);
+      const opts = getScriptOpts(content);
 
       return {
         name,
@@ -154,11 +204,22 @@ export async function getScripts(): Promise<Script[]> {
         absolutePathname: scriptPath,
         pathname: script,
         args,
+        opts,
       } satisfies Script;
     })
   );
 
   const sortedScripts = sortScripts(scripts);
 
-  return sortedScripts;
+  const parsedScripts: Script[] = [];
+  for (const script of sortedScripts) {
+    try {
+      parsedScripts.push(ScriptSchema.parse(script));
+    } catch (error) {
+      console.error("Failed to validate script", script.pathname);
+      console.error(error);
+    }
+  }
+
+  return parsedScripts;
 }

@@ -1,4 +1,4 @@
-import { checkbox } from "@inquirer/prompts";
+import { checkbox, confirm } from "@inquirer/prompts";
 import { spawn } from "node:child_process";
 import colors from "yoctocolors";
 import path from "node:path";
@@ -30,7 +30,7 @@ async function persistSelectedScripts(scripts: Script[]) {
   );
 }
 
-async function loadSelectedScripts() {
+async function loadSelectedScripts(): Promise<string[]> {
   try {
     const dir = path.resolve(process.cwd(), ".vss");
     const selectedFilePath = path.resolve(dir, "selected.txt");
@@ -41,7 +41,7 @@ async function loadSelectedScripts() {
   }
 }
 
-async function getPersistedArgs() {
+async function getPersistedArgs(): Promise<Record<string, unknown>> {
   const argsFilePath = path.resolve(import.meta.dirname, "..", "args.json");
   try {
     const args = await fs.readFile(argsFilePath, "utf-8");
@@ -51,9 +51,24 @@ async function getPersistedArgs() {
   }
 }
 
-async function persistArgs(args: Record<string, string>) {
+async function persistArgs(args: Record<string, unknown>) {
   const argsFilePath = path.resolve(import.meta.dirname, "..", "args.json");
   await fs.writeFile(argsFilePath, JSON.stringify(args, null, 2));
+}
+
+async function getPersistedOpts(): Promise<Record<string, unknown>> {
+  const optsFilePath = path.resolve(process.cwd(), ".vss", "opts.json");
+  try {
+    const opts = await fs.readFile(optsFilePath, "utf-8");
+    return JSON.parse(opts);
+  } catch {
+    return {};
+  }
+}
+
+async function persistOpts(opts: Record<string, unknown>) {
+  const optsFilePath = path.resolve(process.cwd(), ".vss", "opts.json");
+  await fs.writeFile(optsFilePath, JSON.stringify(opts, null, 2));
 }
 
 const main = async () => {
@@ -87,6 +102,8 @@ const main = async () => {
   await persistSelectedScripts(selected);
 
   const args = await getPersistedArgs();
+  const opts = await getPersistedOpts();
+
   for (const script of selected) {
     if (script.args && script.args.length > 0) {
       for (const arg of script.args) {
@@ -102,11 +119,32 @@ const main = async () => {
         args[arg.name] = value;
       }
     }
+
+    if (script.opts && script.opts.length > 0) {
+      for (const opt of script.opts) {
+        // If we already have the option, skip it.
+        if (opts[opt.name]) continue;
+
+        if (opt.type === "boolean") {
+          const value = await confirm({
+            message: opt.description,
+            default: opt.default,
+          });
+
+          opts[opt.name] = value;
+        }
+      }
+    }
   }
 
   // If we have any args, persist them.
   if (Object.keys(args).length > 0) {
     await persistArgs(args);
+  }
+
+  // If we have any opts, persist them.
+  if (Object.keys(opts).length > 0) {
+    await persistOpts(opts);
   }
 
   // Run the selected scripts synchronously in order.
@@ -115,26 +153,48 @@ const main = async () => {
     // Rotate the colors for each script for ease of reading.
     const color = availableColors[colorIndex];
 
+    console.log(color(`✨ Running ${script.name}...`));
+
     // Get the script arguments if it's required.
     const env: NodeJS.ProcessEnv = { ...process.env };
     if (script.args && script.args.length > 0) {
       for (const arg of script.args) {
-        if (args[arg.name]) {
-          env[arg.name] = args[arg.name];
+        const value = args[arg.name];
+        if (typeof value === "string") {
+          env[arg.name] = value;
+        } else if (typeof value === "boolean") {
+          env[arg.name] = value.toString();
         }
+
+        console.log(color(`    ${arg.name}: ${env[arg.name]}`));
       }
     }
 
-    console.log(color(`✨ Running ${script.name}...`));
+    if (script.opts && script.opts.length > 0) {
+      for (const opt of script.opts) {
+        const value = opts[opt.name];
+        if (typeof value === "string") {
+          env[opt.name] = value;
+        } else if (typeof value === "boolean") {
+          env[opt.name] = value.toString();
+        }
+
+        console.log(color(`    ${opt.name}: ${env[opt.name]}`));
+      }
+    }
+
     const child = spawn(
       path.resolve(import.meta.dirname, "..", "bin", "vss"),
       ["--run", script.pathname],
       { shell: true, env }
     );
 
+    const output: string[] = [];
+
     // Log the script's stdout and stderr.
     child.stdout.on("data", (data) => {
       const lines = data.toString().trim().split("\n");
+      output.push(...lines);
 
       for (const line of lines) {
         console.log(color(`[${script.pathname}]`), line);
