@@ -15,7 +15,7 @@ pushd $VERCEL_VERCEL_DIRECTORY
 
 
   backup-file pnpm-lock.yaml
-  pnpm install
+  pnpm install --prefer-offline
   restore-file pnpm-lock.yaml
   
   pnpm build
