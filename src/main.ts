@@ -2,13 +2,34 @@ import { checkbox, confirm } from "@inquirer/prompts";
 import { spawn } from "node:child_process";
 import colors from "yoctocolors";
 import path from "node:path";
-import fs from "node:fs/promises";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import fileSelector from "inquirer-file-selector";
 import os from "node:os";
 
+import { Config } from "./config.js";
 import { getScripts, type Script } from "./script.js";
+
+const config = {
+  global: new Config<{
+    args: Record<string, unknown>;
+  }>({
+    file: path.resolve(import.meta.dirname, "..", ".vss-global.json"),
+    defaults: {
+      args: {},
+    },
+  }),
+  app: new Config<{
+    selected: string[];
+    opts: Record<string, unknown>;
+  }>({
+    file: path.resolve(process.cwd(), ".vss-app.json"),
+    defaults: {
+      selected: [],
+      opts: {},
+    },
+  }),
+};
 
 const availableColors = [
   colors.green,
@@ -19,57 +40,35 @@ const availableColors = [
   colors.red,
 ];
 
-async function persistSelectedScripts(scripts: Script[]) {
-  const dir = path.resolve(process.cwd(), ".vss");
-  await fs.mkdir(dir, { recursive: true });
+// async function getPersistedArgs(): Promise<Record<string, unknown>> {
+//   const argsFilePath = path.resolve(import.meta.dirname, "..", "args.json");
+//   try {
+//     const args = await fs.readFile(argsFilePath, "utf-8");
+//     return JSON.parse(args);
+//   } catch {
+//     return {};
+//   }
+// }
 
-  const selectedFilePath = path.resolve(dir, "selected.txt");
-  await fs.writeFile(
-    selectedFilePath,
-    scripts.map((s) => s.pathname).join("\n")
-  );
-}
+// async function persistArgs(args: Record<string, unknown>) {
+//   const argsFilePath = path.resolve(import.meta.dirname, "..", "args.json");
+//   await fs.writeFile(argsFilePath, JSON.stringify(args, null, 2));
+// }
 
-async function loadSelectedScripts(): Promise<string[]> {
-  try {
-    const dir = path.resolve(process.cwd(), ".vss");
-    const selectedFilePath = path.resolve(dir, "selected.txt");
-    const selected = await fs.readFile(selectedFilePath, "utf-8");
-    return selected.split("\n");
-  } catch {
-    return [];
-  }
-}
+// async function getPersistedOpts(): Promise<Record<string, unknown>> {
+//   const optsFilePath = path.resolve(process.cwd(), ".vss", "opts.json");
+//   try {
+//     const opts = await fs.readFile(optsFilePath, "utf-8");
+//     return JSON.parse(opts);
+//   } catch {
+//     return {};
+//   }
+// }
 
-async function getPersistedArgs(): Promise<Record<string, unknown>> {
-  const argsFilePath = path.resolve(import.meta.dirname, "..", "args.json");
-  try {
-    const args = await fs.readFile(argsFilePath, "utf-8");
-    return JSON.parse(args);
-  } catch {
-    return {};
-  }
-}
-
-async function persistArgs(args: Record<string, unknown>) {
-  const argsFilePath = path.resolve(import.meta.dirname, "..", "args.json");
-  await fs.writeFile(argsFilePath, JSON.stringify(args, null, 2));
-}
-
-async function getPersistedOpts(): Promise<Record<string, unknown>> {
-  const optsFilePath = path.resolve(process.cwd(), ".vss", "opts.json");
-  try {
-    const opts = await fs.readFile(optsFilePath, "utf-8");
-    return JSON.parse(opts);
-  } catch {
-    return {};
-  }
-}
-
-async function persistOpts(opts: Record<string, unknown>) {
-  const optsFilePath = path.resolve(process.cwd(), ".vss", "opts.json");
-  await fs.writeFile(optsFilePath, JSON.stringify(opts, null, 2));
-}
+// async function persistOpts(opts: Record<string, unknown>) {
+//   const optsFilePath = path.resolve(process.cwd(), ".vss", "opts.json");
+//   await fs.writeFile(optsFilePath, JSON.stringify(opts, null, 2));
+// }
 
 const main = async () => {
   const argv = await yargs(hideBin(process.argv)).options({
@@ -80,7 +79,7 @@ const main = async () => {
     },
   }).argv;
 
-  const persisted = await loadSelectedScripts();
+  const persisted = config.app.get("selected");
   const scripts = await getScripts();
 
   let selected: Script[];
@@ -99,10 +98,13 @@ const main = async () => {
   }
 
   // Persist the selected scripts to a file.
-  await persistSelectedScripts(selected);
+  config.app.set(
+    "selected",
+    selected.map((s) => s.pathname)
+  );
 
-  const args = await getPersistedArgs();
-  const opts = await getPersistedOpts();
+  const args = config.global.get("args");
+  const opts = config.app.get("opts");
 
   for (const script of selected) {
     if (script.args && script.args.length > 0) {
@@ -139,12 +141,12 @@ const main = async () => {
 
   // If we have any args, persist them.
   if (Object.keys(args).length > 0) {
-    await persistArgs(args);
+    config.global.set("args", args);
   }
 
   // If we have any opts, persist them.
   if (Object.keys(opts).length > 0) {
-    await persistOpts(opts);
+    config.app.set("opts", opts);
   }
 
   // Run the selected scripts synchronously in order.
