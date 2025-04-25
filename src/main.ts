@@ -40,36 +40,6 @@ const availableColors = [
   colors.red,
 ];
 
-// async function getPersistedArgs(): Promise<Record<string, unknown>> {
-//   const argsFilePath = path.resolve(import.meta.dirname, "..", "args.json");
-//   try {
-//     const args = await fs.readFile(argsFilePath, "utf-8");
-//     return JSON.parse(args);
-//   } catch {
-//     return {};
-//   }
-// }
-
-// async function persistArgs(args: Record<string, unknown>) {
-//   const argsFilePath = path.resolve(import.meta.dirname, "..", "args.json");
-//   await fs.writeFile(argsFilePath, JSON.stringify(args, null, 2));
-// }
-
-// async function getPersistedOpts(): Promise<Record<string, unknown>> {
-//   const optsFilePath = path.resolve(process.cwd(), ".vss", "opts.json");
-//   try {
-//     const opts = await fs.readFile(optsFilePath, "utf-8");
-//     return JSON.parse(opts);
-//   } catch {
-//     return {};
-//   }
-// }
-
-// async function persistOpts(opts: Record<string, unknown>) {
-//   const optsFilePath = path.resolve(process.cwd(), ".vss", "opts.json");
-//   await fs.writeFile(optsFilePath, JSON.stringify(opts, null, 2));
-// }
-
 const main = async () => {
   const argv = await yargs(hideBin(process.argv)).options({
     replay: {
