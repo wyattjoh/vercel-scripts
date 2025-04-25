@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# @vercel.name Deploy Project
-# @vercel.description Deploy the project
+# @vercel.name Deploy Project (vc deploy --prebuilt)
+# @vercel.description Deploy the project using the prebuilt build.
 # @vercel.after ./build_project.sh
 # @vercel.arg VERCEL_VERCEL_DIRECTORY The directory for the vercel/vercel repo
 # @vercel.opt { "name": "VERCEL_BUILD_PRODUCTION", "description": "Build the project in production mode", "type": "boolean", "default": false }
