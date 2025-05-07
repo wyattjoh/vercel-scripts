@@ -63,7 +63,11 @@ const main = async () => {
         name: script.name,
         description: script.description,
         checked: persisted.includes(script.pathname),
+        short: script.pathname,
       })),
+      loop: false,
+      required: true,
+      pageSize: scripts.length,
     });
   }
 
