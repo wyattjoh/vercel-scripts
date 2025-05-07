@@ -182,8 +182,14 @@ const main = async () => {
     });
 
     // Wait for the script to finish.
-    await new Promise((resolve) => {
-      child.on("close", resolve);
+    await new Promise<void>((resolve) => {
+      child.on("close", (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          process.exit(code);
+        }
+      });
     });
 
     colorIndex = (colorIndex + 1) % availableColors.length;
