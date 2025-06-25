@@ -6,7 +6,8 @@
   "main": "index.js",
   "scripts": {
     "build": "tsup",
-    "dev": "tsup --watch"
+    "dev": "tsup --watch",
+    "generate-readme": "pnpm build && node dist/generate-readme.js"
   },
   "keywords": [],
   "author": "",
