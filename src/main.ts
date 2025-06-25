@@ -6,6 +6,8 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import fileSelector from "inquirer-file-selector";
 import os from "node:os";
+import updateNotifier from "update-notifier";
+import packageJson from "../package.json" with { type: "json" };
 
 import { Config } from "./config.js";
 import { getScripts, type Script } from "./script.js";
@@ -41,6 +43,10 @@ const availableColors = [
 ];
 
 const main = async () => {
+  // Check for package updates on startup
+  const notifier = updateNotifier({ pkg: packageJson });
+  notifier.notify();
+
   const argv = await yargs(hideBin(process.argv)).options({
     replay: {
       type: "boolean",
@@ -58,7 +64,7 @@ const main = async () => {
   } else {
     selected = await checkbox({
       message: "Which scripts do you want to run?",
-      choices: scripts.map((script, i) => ({
+      choices: scripts.map((script) => ({
         value: script,
         name: script.name,
         description: script.description,
