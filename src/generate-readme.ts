@@ -44,7 +44,10 @@ async function generateReadme() {
     }
 
     // Show dependencies if any
-    if (script.afterAbsolutePathnames && script.afterAbsolutePathnames.length > 0) {
+    if (
+      script.afterAbsolutePathnames &&
+      script.afterAbsolutePathnames.length > 0
+    ) {
       const deps = script.afterAbsolutePathnames
         .map((p) => `./${path.basename(p)}`)
         .join(", ");

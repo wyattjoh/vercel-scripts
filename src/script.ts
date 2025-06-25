@@ -150,7 +150,6 @@ function sortScripts(scripts: Script[]): Script[] {
 
   // Process the queue
   while (queue.length > 0) {
-    // biome-ignore lint/style/noNonNullAssertion: checked the length above
     const current = queue.shift()!;
     result.push(scripts[current]);
 

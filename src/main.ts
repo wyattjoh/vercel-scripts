@@ -1,12 +1,12 @@
-import { checkbox, confirm } from "@inquirer/prompts";
 import { spawn } from "node:child_process";
-import colors from "yoctocolors";
+import os from "node:os";
 import path from "node:path";
+import { checkbox, confirm } from "@inquirer/prompts";
+import fileSelector from "inquirer-file-selector";
+import updateNotifier from "update-notifier";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import fileSelector from "inquirer-file-selector";
-import os from "node:os";
-import updateNotifier from "update-notifier";
+import colors from "yoctocolors";
 import packageJson from "../package.json" with { type: "json" };
 
 import { Config } from "./config.js";
