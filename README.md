@@ -72,6 +72,9 @@ Build the Next.js project
 **Required Arguments:**
 - `VERCEL_NEXT_DIRECTORY`: The directory for the vercel/next.js repo
 
+**Optional Parameters:**
+- `VERCEL_NEXT_WORKTREE`: Select Next.js worktree to build (default: null)
+
 ### Build Vercel CLI
 
 Build the vercel CLI

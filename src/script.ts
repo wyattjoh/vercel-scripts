@@ -19,8 +19,10 @@ export type ScriptArg = z.infer<typeof ScriptArgSchema>;
 const ScriptOptSchema = z.object({
   name: z.string(),
   description: z.string(),
-  type: z.enum(["boolean"]),
-  default: z.boolean(),
+  type: z.enum(["boolean", "worktree"]),
+  default: z.union([z.boolean(), z.string(), z.null()]),
+  baseDirArg: z.string().optional(),
+  optional: z.boolean().optional(),
 });
 
 export type ScriptOpt = z.infer<typeof ScriptOptSchema>;

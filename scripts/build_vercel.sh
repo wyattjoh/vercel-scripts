@@ -13,7 +13,6 @@ pushd $VERCEL_VERCEL_DIRECTORY
     update-package-json "@vercel/next" "workspace:*"
   popd
 
-
   backup-file pnpm-lock.yaml
   pnpm install --prefer-offline
   restore-file pnpm-lock.yaml

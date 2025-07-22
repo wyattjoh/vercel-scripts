@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
-import { checkbox, confirm } from "@inquirer/prompts";
+import { checkbox, confirm, select } from "@inquirer/prompts";
 import fileSelector from "inquirer-file-selector";
 import updateNotifier from "update-notifier";
 import yargs from "yargs";
@@ -11,6 +11,7 @@ import packageJson from "../package.json" with { type: "json" };
 
 import { Config } from "./config.js";
 import { getScripts, type Script } from "./script.js";
+import { listWorktrees } from "./worktree.js";
 
 const config = {
   global: new Config<{
@@ -105,15 +106,47 @@ const main = async () => {
     if (script.opts && script.opts.length > 0) {
       for (const opt of script.opts) {
         // If we already have the option, skip it.
-        if (opts[opt.name]) continue;
+        if (opts[opt.name] !== undefined) continue;
 
         if (opt.type === "boolean") {
           const value = await confirm({
             message: opt.description,
-            default: opt.default,
+            default: opt.default as boolean,
           });
 
           opts[opt.name] = value;
+        } else if (opt.type === "worktree") {
+          if (!opt.baseDirArg) {
+            console.warn(`Worktree option ${opt.name} missing baseDirArg`);
+            continue;
+          }
+
+          const baseDir = args[opt.baseDirArg];
+          if (!baseDir || typeof baseDir !== "string") {
+            console.warn(
+              `Base directory ${opt.baseDirArg} not set, skipping ${opt.name}`
+            );
+            continue;
+          }
+
+          const worktrees = await listWorktrees(baseDir);
+          const choices = [
+            { value: null, name: "(Use base directory)" },
+            ...worktrees.map((wt) => ({
+              value: wt.path,
+              name: `${wt.branch} (${path.relative(baseDir, wt.path)})`,
+            })),
+          ];
+
+          // Only prompt if there are worktrees or if not optional
+          if (worktrees.length > 0 || !opt.optional) {
+            const value = await select({
+              message: opt.description,
+              choices,
+              default: (opt.default as string | null) ?? null,
+            });
+            opts[opt.name] = value;
+          }
         }
       }
     }
@@ -155,6 +188,10 @@ const main = async () => {
     if (script.opts && script.opts.length > 0) {
       for (const opt of script.opts) {
         const value = opts[opt.name];
+        if (value === null || value === undefined) {
+          // Don't set the env var if null/undefined
+          continue;
+        }
         if (typeof value === "string") {
           env[opt.name] = value;
         } else if (typeof value === "boolean") {
