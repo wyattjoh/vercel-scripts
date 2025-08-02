@@ -205,28 +205,34 @@ const main = async () => {
     const child = spawn(
       path.resolve(import.meta.dirname, "..", "bin", "vss"),
       ["--run", script.pathname],
-      { shell: true, env }
+      { 
+        shell: true, 
+        env, 
+        stdio: script.stdin === "inherit" ? "inherit" : ["inherit", "pipe", "pipe"]
+      }
     );
 
     const output: string[] = [];
 
-    // Log the script's stdout and stderr.
-    child.stdout.on("data", (data) => {
-      const lines = data.toString().trim().split("\n");
-      output.push(...lines);
+    // Log the script's stdout and stderr only if using piped stdio.
+    if (script.stdin !== "inherit") {
+      child.stdout?.on("data", (data) => {
+        const lines = data.toString().trim().split("\n");
+        output.push(...lines);
 
-      for (const line of lines) {
-        console.log(color(`[${script.pathname}]`), line);
-      }
-    });
+        for (const line of lines) {
+          console.log(color(`[${script.pathname}]`), line);
+        }
+      });
 
-    child.stderr.on("data", (data) => {
-      const lines = data.toString().trim().split("\n");
+      child.stderr?.on("data", (data) => {
+        const lines = data.toString().trim().split("\n");
 
-      for (const line of lines) {
-        console.log(color(`[${script.pathname}]`), line);
-      }
-    });
+        for (const line of lines) {
+          console.log(color(`[${script.pathname}]`), line);
+        }
+      });
+    }
 
     // Wait for the script to finish.
     await new Promise<void>((resolve) => {

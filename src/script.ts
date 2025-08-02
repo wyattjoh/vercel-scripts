@@ -63,6 +63,11 @@ const ScriptSchema = z.object({
    * The options that the script accepts.
    */
   opts: z.array(ScriptOptSchema).optional(),
+
+  /**
+   * Whether the script requires stdin to be inherited from the parent process.
+   */
+  stdin: z.literal("inherit").optional(),
 });
 
 export type Script = z.infer<typeof ScriptSchema>;
@@ -107,6 +112,10 @@ function getScriptOpts(content: string): ScriptOpt[] | undefined {
   }
 
   return opts;
+}
+
+function getScriptStdin(content: string): "inherit" | undefined {
+  return content.match(/@vercel\.stdin\s+inherit/)?.[0] ? "inherit" : undefined;
 }
 
 // Implement topological sort for dependency ordering
@@ -195,6 +204,7 @@ export async function getScripts(): Promise<Script[]> {
       const after = getScriptAttribute(content, "after");
       const args = getScriptArgs(content);
       const opts = getScriptOpts(content);
+      const stdin = getScriptStdin(content);
 
       return {
         name,
@@ -206,6 +216,7 @@ export async function getScripts(): Promise<Script[]> {
         pathname: script,
         args,
         opts,
+        stdin,
       } satisfies Script;
     })
   );
