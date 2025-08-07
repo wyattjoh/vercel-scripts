@@ -6,6 +6,18 @@ if ! command -v brew &> /dev/null; then
   exit 1
 fi
 
+# Check if `deno` is installed.
+if ! command -v deno &> /dev/null; then
+  echo "Installing deno..."
+  brew install deno
+fi
+
+# Check if `nu` is installed.
+if ! command -v nu &> /dev/null; then
+  echo "Installing nu..."
+  curl -fsSL https://raw.githubusercontent.com/wyattjoh/next-dev-utils/refs/heads/main/scripts/install.sh | bash
+fi
+
 # Check if `jq` is installed.
 if ! command -v jq &> /dev/null; then
   echo "Installing jq..."

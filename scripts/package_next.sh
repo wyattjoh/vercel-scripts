@@ -9,8 +9,6 @@
 
 set -e
 
-alias nu="fnm exec --using=v20 node $NEXT_DEV_UTILS_DIRECTORY/packages/cli/dist/cli.js"
-
 # Use VERCEL_NEXT_WORKTREE if set, otherwise use VERCEL_NEXT_DIRECTORY
 export NEXT_PROJECT_PATH=${VERCEL_NEXT_WORKTREE:-$VERCEL_NEXT_DIRECTORY}
 
