@@ -2,6 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 
+import { getSrcPath } from "./utils.ts";
+
 const ScriptArgSchema = z.object({
   /**
    * The name of the argument.
@@ -74,14 +76,14 @@ export type Script = z.infer<typeof ScriptSchema>;
 
 function getScriptAttribute(
   content: string,
-  attribute: string
+  attribute: string,
 ): string | undefined {
   return content.match(new RegExp(`\@vercel\\.${attribute}\\s+(.+)`))?.[1];
 }
 
 function getScriptArgs(content: string): ScriptArg[] | undefined {
   const matches = content.matchAll(
-    /@vercel\.arg\s+(?<name>[A-Za-z0-9_]+)\s+(?<description>.+)$/gm
+    /@vercel\.arg\s+(?<name>[A-Za-z0-9_]+)\s+(?<description>.+)$/gm,
   );
 
   const args: ScriptArg[] = [];
@@ -182,7 +184,7 @@ function sortScripts(scripts: Script[]): Script[] {
 }
 
 export async function getScripts(): Promise<Script[]> {
-  const scriptsDir = path.resolve(import.meta.dirname, "..", "scripts");
+  const scriptsDir = path.resolve(getSrcPath(), "scripts");
   const scriptFiles = await fs.readdir(scriptsDir);
 
   const scripts = await Promise.all(
@@ -196,7 +198,7 @@ export async function getScripts(): Promise<Script[]> {
       const name = getScriptAttribute(content, "name");
       if (!name) {
         throw new Error(
-          `Script ${script} does not have a @vercel.name attribute`
+          `Script ${script} does not have a @vercel.name attribute`,
         );
       }
 
@@ -218,7 +220,7 @@ export async function getScripts(): Promise<Script[]> {
         opts,
         stdin,
       } satisfies Script;
-    })
+    }),
   );
 
   const sortedScripts = sortScripts(scripts);

@@ -2,3 +2,4 @@ node_modules
 dist
 args.json
 .vss-global.json
+/bin

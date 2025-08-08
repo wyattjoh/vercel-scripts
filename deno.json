@@ -1,0 +1,49 @@
+{
+  "name": "@wyattjoh/vercel-scripts",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./src/main.ts"
+  },
+  "bin": {
+    "vss": "./src/main.ts"
+  },
+  "$schema": "https://github.com/denoland/deno/blob/main/cli/schemas/config-file.v1.json",
+  "license": "ISC",
+  "publish": {
+    "include": ["src/**/*.ts", "src/**/*.sh", "README.md"]
+  },
+  "tasks": {
+    "build": "deno compile --allow-all --output=./bin/vss src/main.ts",
+    "dev": "deno run --allow-all --watch src/main.ts"
+  },
+  "nodeModulesDir": "auto",
+  "imports": {
+    "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
+    "@cliffy/prompt": "jsr:@cliffy/prompt@^1.0.0-rc.8",
+    "lefthook": "npm:lefthook@^1.12.2",
+    "yoctocolors": "npm:yoctocolors@^2.1.1",
+    "zod": "npm:zod@^3.24.1"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true
+  },
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 80,
+    "indentWidth": 2,
+    "semiColons": true,
+    "singleQuote": false,
+    "proseWrap": "preserve"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  }
+}

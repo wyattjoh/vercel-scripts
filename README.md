@@ -1,6 +1,12 @@
 # Vercel Scripts
 
-An interactive CLI tool for managing Vercel and Next.js development workflows through a collection of reusable scripts.
+A powerful Deno-based CLI tool for managing Vercel and Next.js development workflows through an interactive collection of reusable scripts.
+
+## Installation
+
+```shell
+curl -fsSL https://raw.githubusercontent.com/wyattjoh/vercel-scripts/refs/heads/main/scripts/install.sh | bash
+```
 
 ## Features
 
@@ -9,43 +15,39 @@ An interactive CLI tool for managing Vercel and Next.js development workflows th
 - **Persistent Configuration** - Remembers your selections and arguments between runs
 - **Environment Variables** - Script arguments are passed as environment variables
 - **Replay Mode** - Re-run your last selection with `vss --replay`
+- **Git Worktree Support** - Seamlessly work with multiple Git worktrees
 
-## Prerequisites
+## Requirements
 
-- Node.js >=20.0.0
-- pnpm
+Note that these will automatically be installed by the provided installation script.
+
+- Deno 2.0+
 - zsh shell
-- jq (for JSON processing in scripts)
-
-## Setup
-
-1. **Install and build:**
-   ```bash
-   pnpm install && pnpm build
-   ```
-
-2. **Add to PATH:**
-   ```bash
-   export PATH="$PATH:/path/to/vercel-scripts/bin"
-   ```
-
-3. **Run the CLI:**
-   ```bash
-   vss
-   ```
-   Run from any project directory to launch the interactive script selector.
+- [Homebrew](https://brew.sh)
+- [next-dev-utilities](https://github.com/wyattjoh/next-dev-utils)
+- jq - for JSON processing in scripts)
+- git - for worktree functionality)
 
 ## Usage
 
-The tool will prompt you to select scripts and provide any required arguments (like directory paths). Your selections and arguments are persisted for future runs.
+The tool provides an interactive interface to select and execute development scripts. Your selections and arguments are persisted for future runs.
 
 **Commands:**
+
 - `vss` - Interactive script selector
 - `vss --replay` - Re-run the last selection without prompts
+- `vss --help` - Show help information
+
+## Configuration
+
+The tool creates configuration files to persist your settings:
+
+- `~/.vss.json` - Global user arguments (persisted in home directory)
+- `.vss-app.json` - Per-project selections and options (created in working directory)
 
 ## Adding New Scripts
 
-Create a bash script in the `scripts/` directory with metadata annotations:
+Create a bash script in the `src/scripts/` directory with metadata annotations:
 
 ```bash
 #!/bin/bash
@@ -59,7 +61,7 @@ Create a bash script in the `scripts/` directory with metadata annotations:
 # Your script logic here
 ```
 
-Make it executable: `chmod +x scripts/your_script.sh`
+Make it executable: `chmod +x src/scripts/your_script.sh`
 
 ## Available Scripts
 
@@ -70,9 +72,11 @@ The tool includes the following pre-configured scripts:
 Build the Next.js project
 
 **Required Arguments:**
+
 - `VERCEL_NEXT_DIRECTORY`: The directory for the vercel/next.js repo
 
 **Optional Parameters:**
+
 - `VERCEL_NEXT_WORKTREE`: Select Next.js worktree to build (default: null)
 
 ### Build Vercel CLI
@@ -80,6 +84,7 @@ Build the Next.js project
 Build the vercel CLI
 
 **Required Arguments:**
+
 - `VERCEL_VERCEL_DIRECTORY`: The directory for the vercel/vercel repo
 
 ### Link Local Next.js
@@ -87,6 +92,7 @@ Build the vercel CLI
 Install the local Next.js package as the project's dependency
 
 **Required Arguments:**
+
 - `VERCEL_NEXT_DIRECTORY`: The directory for the vercel/next.js repo
 
 **Dependencies:** Runs after ./build_next.sh
@@ -96,6 +102,7 @@ Install the local Next.js package as the project's dependency
 Package the Next.js project
 
 **Required Arguments:**
+
 - `NEXT_DEV_UTILS_DIRECTORY`: The directory for the wyattjoh/next-dev-utils repo
 
 **Dependencies:** Runs after ./build_next.sh
@@ -111,9 +118,11 @@ Build the project for local testing (not deployment).
 Build the project for deployment.
 
 **Required Arguments:**
+
 - `VERCEL_VERCEL_DIRECTORY`: The directory for the vercel/vercel repo
 
 **Optional Parameters:**
+
 - `VERCEL_BUILD_PRODUCTION`: Build the project in production mode (default: false)
 
 **Dependencies:** Runs after ./package_next.sh, ./package_vercel.sh, ./link_next.sh
@@ -129,21 +138,39 @@ Start the project for local testing (not deployment).
 Deploy the project using the prebuilt build.
 
 **Required Arguments:**
+
 - `VERCEL_VERCEL_DIRECTORY`: The directory for the vercel/vercel repo
 
 **Optional Parameters:**
+
 - `VERCEL_BUILD_PRODUCTION`: Build the project in production mode (default: false)
 
 **Dependencies:** Runs after ./build_project.sh
 
+## Development
 
-
-## Generating Documentation
-
-This README is automatically generated from script metadata. To regenerate:
+To contribute or modify the CLI:
 
 ```bash
-pnpm build && node dist/generate-readme.js
+# Clone the repository
+git clone https://github.com/wyattjoh/vercel-scripts.git
+cd vercel-scripts
+
+# Run in development
+deno run --allow-all src/main.ts
+
+# Build standalone executable
+deno task build
+
+# Format code
+deno fmt
+
+# Lint code
+deno lint
 ```
 
-The script reads `@vercel.*` annotations from all scripts in the `scripts/` directory and builds comprehensive documentation including dependencies, arguments, and options.
+The script reads `@vercel.*` annotations from all scripts in the `src/scripts/` directory and builds comprehensive documentation including dependencies, arguments, and options.
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.

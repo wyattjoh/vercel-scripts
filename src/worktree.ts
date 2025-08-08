@@ -6,7 +6,7 @@ export interface Worktree {
   HEAD: string;
 }
 
-export async function listWorktrees(baseDir: string): Promise<Worktree[]> {
+export function listWorktrees(baseDir: string): Worktree[] {
   try {
     const output = execSync("git worktree list --porcelain", {
       cwd: baseDir,

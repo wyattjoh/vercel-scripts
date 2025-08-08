@@ -1,27 +1,24 @@
 import fs from "node:fs";
 
-type ConfigOptions<T> = {
-  file: string;
-  defaults: T;
-};
-
-export class Config<T extends Record<string, unknown>> {
-  private config: T;
-
-  constructor(private readonly options: ConfigOptions<T>) {
-    try {
-      this.config = JSON.parse(fs.readFileSync(this.options.file, "utf8"));
-    } catch {
-      this.config = this.options.defaults;
-    }
+function loadConfigFile<T>(file: string, defaults: T) {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return defaults;
   }
+}
 
-  get<K extends keyof T>(key: K): T[K] {
-    return this.config[key] ?? this.options.defaults[key];
-  }
-
-  set<K extends keyof T>(key: K, value: T[K]) {
-    this.config[key] = value;
-    fs.writeFileSync(this.options.file, JSON.stringify(this.config, null, 2));
-  }
+export function createConfig<T>(file: string, defaults: T) {
+  let cache: T;
+  return {
+    get<K extends keyof T>(key: K): T[K] {
+      if (!cache) cache = loadConfigFile(file, defaults);
+      return cache[key] ?? defaults[key];
+    },
+    set<K extends keyof T>(key: K, value: T[K]) {
+      if (!cache) cache = loadConfigFile(file, defaults);
+      cache[key] = value;
+      fs.writeFileSync(file, JSON.stringify(cache, null, 2));
+    },
+  };
 }

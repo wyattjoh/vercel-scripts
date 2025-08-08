@@ -1,37 +1,39 @@
 import { spawn } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
-import { checkbox, confirm, select } from "@inquirer/prompts";
-import fileSelector from "inquirer-file-selector";
-import updateNotifier from "update-notifier";
-import yargs from "yargs";
-import { hideBin } from "yargs/helpers";
+import process from "node:process";
+import { Checkbox, Confirm, Input, Select } from "@cliffy/prompt";
+import { Command } from "@cliffy/command";
 import colors from "yoctocolors";
-import packageJson from "../package.json" with { type: "json" };
 
-import { Config } from "./config.js";
-import { getScripts, type Script } from "./script.js";
-import { listWorktrees } from "./worktree.js";
+import { createConfig } from "./config.ts";
+import { getScripts, type Script } from "./script.ts";
+import { listWorktrees } from "./worktree.ts";
+import deno from "../deno.json" with { type: "json" };
+import { getSrcPath } from "./utils.ts";
 
 const config = {
-  global: new Config<{
+  global: createConfig<{
     args: Record<string, unknown>;
-  }>({
-    file: path.resolve(import.meta.dirname, "..", ".vss-global.json"),
-    defaults: {
+  }>(
+    path.join(
+      os.homedir(),
+      ".vss.json",
+    ),
+    {
       args: {},
     },
-  }),
-  app: new Config<{
+  ),
+  app: createConfig<{
     selected: string[];
     opts: Record<string, unknown>;
-  }>({
-    file: path.resolve(process.cwd(), ".vss-app.json"),
-    defaults: {
+  }>(
+    path.resolve(process.cwd(), ".vss-app.json"),
+    {
       selected: [],
       opts: {},
     },
-  }),
+  ),
 };
 
 const availableColors = [
@@ -44,44 +46,34 @@ const availableColors = [
 ];
 
 const main = async () => {
-  // Check for package updates on startup
-  const notifier = updateNotifier({ pkg: packageJson });
-  notifier.notify();
-
-  const argv = await yargs(hideBin(process.argv)).options({
-    replay: {
-      type: "boolean",
-      description: "Replay the last run",
-      default: false,
-    },
-  }).argv;
+  const { options } = await new Command()
+    .name("vss")
+    .description("Vercel Scripts Selector")
+    .version(deno.version)
+    .option("-r, --replay", "Replay the last run")
+    .parse(Deno.args);
 
   const persisted = config.app.get("selected");
   const scripts = await getScripts();
 
   let selected: Script[];
-  if (argv.replay) {
+  if (options.replay) {
     selected = scripts.filter((script) => persisted.includes(script.pathname));
   } else {
-    selected = await checkbox({
+    selected = await Checkbox.prompt({
       message: "Which scripts do you want to run?",
-      choices: scripts.map((script) => ({
+      options: scripts.map((script) => ({
         value: script,
         name: script.name,
-        description: script.description,
         checked: persisted.includes(script.pathname),
-        short: script.pathname,
       })),
-      loop: false,
-      required: true,
-      pageSize: scripts.length,
     });
   }
 
   // Persist the selected scripts to a file.
   config.app.set(
     "selected",
-    selected.map((s) => s.pathname)
+    selected.map((s) => s.pathname),
   );
 
   const args = config.global.get("args");
@@ -93,10 +85,10 @@ const main = async () => {
         // If we already have the argument, skip it.
         if (args[arg.name]) continue;
 
-        const value = await fileSelector({
-          message: `Enter a value for ${arg.name} - ${arg.description}`,
-          type: "directory",
-          basePath: os.homedir(),
+        const value = await Input.prompt({
+          message:
+            `Enter a directory path for ${arg.name} - ${arg.description}`,
+          default: os.homedir(),
         });
 
         args[arg.name] = value;
@@ -109,7 +101,7 @@ const main = async () => {
         if (opts[opt.name] !== undefined) continue;
 
         if (opt.type === "boolean") {
-          const value = await confirm({
+          const value = await Confirm.prompt({
             message: opt.description,
             default: opt.default as boolean,
           });
@@ -124,12 +116,12 @@ const main = async () => {
           const baseDir = args[opt.baseDirArg];
           if (!baseDir || typeof baseDir !== "string") {
             console.warn(
-              `Base directory ${opt.baseDirArg} not set, skipping ${opt.name}`
+              `Base directory ${opt.baseDirArg} not set, skipping ${opt.name}`,
             );
             continue;
           }
 
-          const worktrees = await listWorktrees(baseDir);
+          const worktrees = listWorktrees(baseDir);
           const choices = [
             { value: null, name: "(Use base directory)" },
             ...worktrees.map((wt) => ({
@@ -140,9 +132,12 @@ const main = async () => {
 
           // Only prompt if there are worktrees or if not optional
           if (worktrees.length > 0 || !opt.optional) {
-            const value = await select({
+            const value = await Select.prompt({
               message: opt.description,
-              choices,
+              options: choices.map((choice) => ({
+                name: choice.name,
+                value: choice.value,
+              })),
               default: (opt.default as string | null) ?? null,
             });
             opts[opt.name] = value;
@@ -203,13 +198,15 @@ const main = async () => {
     }
 
     const child = spawn(
-      path.resolve(import.meta.dirname, "..", "bin", "vss"),
-      ["--run", script.pathname],
-      { 
-        shell: true, 
-        env, 
-        stdio: script.stdin === "inherit" ? "inherit" : ["inherit", "pipe", "pipe"]
-      }
+      path.resolve(getSrcPath(), "execute.sh"),
+      [script.pathname],
+      {
+        shell: true,
+        env,
+        stdio: script.stdin === "inherit"
+          ? "inherit"
+          : ["inherit", "pipe", "pipe"],
+      },
     );
 
     const output: string[] = [];
@@ -249,11 +246,13 @@ const main = async () => {
   }
 };
 
-main().catch((error) => {
-  if (error instanceof Error && error.name === "ExitPromptError") {
-    // This was a CTRL-C, so exit without error.
-  } else {
-    // Rethrow unknown errors
-    throw error;
-  }
-});
+if (import.meta.main) {
+  main().catch((error) => {
+    if (error instanceof Error && error.name === "ExitPromptError") {
+      // This was a CTRL-C, so exit without error.
+    } else {
+      // Rethrow unknown errors
+      throw error;
+    }
+  });
+}

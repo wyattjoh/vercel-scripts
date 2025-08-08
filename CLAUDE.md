@@ -4,25 +4,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build Commands
 
-- `pnpm install && pnpm build` - Install dependencies and build the TypeScript CLI
-- `pnpm dev` - Watch mode development with tsup
+- `deno task build` - Compile TypeScript CLI to standalone binary
+- `deno task dev` - Watch mode development with Deno
+- `deno fmt` - Format TypeScript code
+- `deno lint` - Lint TypeScript code
 
 ## Running the CLI
 
-Run `./bin/vss` from any project directory to launch the interactive script selector. The binary is built from TypeScript source in `src/` using tsup.
+Run `deno run --allow-all src/main.ts` to launch the interactive script selector from source, or compile with `deno task build` to create a standalone binary.
 
 ## Architecture
 
-This is a TypeScript CLI tool that provides an interactive script selector for Vercel project workflows. The main components:
+This is a Deno-based TypeScript CLI tool that provides an interactive script selector for Vercel project workflows. The main components:
 
-- **`src/main.ts`** - Main CLI entry point with interactive prompts using @inquirer/prompts
+- **`src/main.ts`** - Main CLI entry point with interactive prompts using @cliffy/prompt
 - **`src/script.ts`** - Script parser that reads bash scripts with special `@vercel.*` annotations and handles dependency ordering via topological sort
 - **`src/config.ts`** - JSON-based configuration persistence for user selections and arguments
-- **`scripts/` directory** - Collection of bash scripts with metadata annotations
+- **`src/scripts/` directory** - Collection of bash scripts with metadata annotations
 
 ### Script Annotation System
 
 Scripts use special comments for metadata:
+
 ```bash
 # @vercel.name Script Name
 # @vercel.description Description text
