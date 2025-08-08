@@ -2,16 +2,15 @@ name: Publish to JSR and Homebrew
 
 on:
   push:
-    tags:
-      - "*"
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write # Required for OIDC authentication with JSR
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,13 +28,3 @@ jobs:
 
       - name: Type check
         run: deno check
-
-      - name: Publish packages to JSR
-        run: deno publish
-
-      - name: Publish packages to Homebrew
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          version: "latest"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}

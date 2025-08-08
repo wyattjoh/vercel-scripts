@@ -5,7 +5,7 @@ A powerful Deno-based CLI tool for managing Vercel and Next.js development workf
 ## Installation
 
 ```shell
-curl -fsSL https://raw.githubusercontent.com/wyattjoh/vercel-scripts/refs/heads/main/scripts/install.sh | bash
+brew install wyattjoh/stable/vercel-scripts
 ```
 
 ## Features
@@ -19,14 +19,10 @@ curl -fsSL https://raw.githubusercontent.com/wyattjoh/vercel-scripts/refs/heads/
 
 ## Requirements
 
-Note that these will automatically be installed by the provided installation script.
-
-- Deno 2.0+
-- zsh shell
 - [Homebrew](https://brew.sh)
 - [next-dev-utilities](https://github.com/wyattjoh/next-dev-utils)
-- jq - for JSON processing in scripts)
-- git - for worktree functionality)
+- jq - for JSON processing in scripts
+- git - for worktree functionality
 
 ## Usage
 

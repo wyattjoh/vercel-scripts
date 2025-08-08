@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+
+version: 2
+project_name: "vercel-scripts"
+builds:
+  - builder: "deno"
+    binary: "vss"
+    main: "src/main.ts"
+    flags:
+      - "--allow-all"
+      - "--include=src/scripts"
+      - "--include=src/runtime"
+      - "--exclude=node_modules"
+    targets:
+      - "aarch64-apple-darwin"
+
+homebrew_casks:
+  - description: "A powerful Deno-based CLI tool for managing Vercel and Next.js development workflows through an interactive collection of reusable scripts."
+    dependencies:
+      - formula: "jq"
+    repository:
+      owner: "wyattjoh"
+      name: "homebrew-stable"
