@@ -7,10 +7,9 @@ import { Command } from "@cliffy/command";
 import colors from "yoctocolors";
 
 import { createConfig } from "./config.ts";
-import { getScripts, type Script } from "./script.ts";
+import { getScripts, prepareScript, type Script } from "./script.ts";
 import { listWorktrees } from "./worktree.ts";
 import deno from "../deno.json" with { type: "json" };
-import { getSrcPath } from "./utils.ts";
 
 const config = {
   global: createConfig<{
@@ -198,8 +197,21 @@ const main = async () => {
     }
 
     const child = spawn(
-      path.resolve(getSrcPath(), "execute.sh"),
-      [script.pathname],
+      // The execute.sh script is embedded in the VSS package, so we need to
+      // prepare it to run in the temporary directory.
+      await prepareScript(
+        path.join(import.meta.dirname!, "runtime", "runtime.sh"),
+        "runtime",
+        true,
+      ),
+      [
+        // If the script is embedded, prepare it to run in the temporary
+        // directory. We can't execute it directly because the script will not
+        // be able to see the other script files.
+        script.embedded
+          ? await prepareScript(script.absolutePathname, "script")
+          : script.absolutePathname,
+      ],
       {
         shell: true,
         env,

@@ -1,8 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import os from "node:os";
 import { z } from "zod";
-
-import { getSrcPath } from "./utils.ts";
 
 const ScriptArgSchema = z.object({
   /**
@@ -55,6 +54,11 @@ const ScriptSchema = z.object({
    * The relative path to the script.
    */
   pathname: z.string(),
+
+  /**
+   * Whether the script is embedded in the VSS package.
+   */
+  embedded: z.boolean().optional(),
 
   /**
    * The arguments that the script requires.
@@ -184,7 +188,7 @@ function sortScripts(scripts: Script[]): Script[] {
 }
 
 export async function getScripts(): Promise<Script[]> {
-  const scriptsDir = path.resolve(getSrcPath(), "scripts");
+  const scriptsDir = path.resolve(import.meta.dirname!, "scripts");
   const scriptFiles = await fs.readdir(scriptsDir);
 
   const scripts = await Promise.all(
@@ -216,6 +220,7 @@ export async function getScripts(): Promise<Script[]> {
           .map((a) => path.join(scriptsDir, a.trim())),
         absolutePathname: scriptPath,
         pathname: script,
+        embedded: true,
         args,
         opts,
         stdin,
@@ -236,4 +241,29 @@ export async function getScripts(): Promise<Script[]> {
   }
 
   return parsedScripts;
+}
+
+export async function prepareScript(
+  sourcePathname: string,
+  prefix: string,
+  executable: boolean = false,
+): Promise<string> {
+  // Create a temporary directory for the script (if it doesn't exist).
+  const tmpDir = path.join(os.tmpdir(), "vss", prefix);
+  const exists = await fs.stat(tmpDir).then(() => true).catch(() => false);
+  if (!exists) {
+    await fs.mkdir(tmpDir, { recursive: true });
+  }
+
+  const targetPathname = path.join(tmpDir, path.basename(sourcePathname));
+
+  // Copy the source file to the temporary directory.
+  await fs.copyFile(sourcePathname, targetPathname);
+
+  // Make the script executable if requested.
+  if (executable) {
+    await fs.chmod(targetPathname, 0o755);
+  }
+
+  return targetPathname;
 }

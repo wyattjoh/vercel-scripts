@@ -2,11 +2,9 @@
 
 set -e
 
-# Get the root directory of the project.
-export VS_ROOT=$(dirname "$(dirname "$(realpath "$0")")")
-
 # Get the script to run.
-SCRIPT_NAME=$1
+SCRIPT_PATHNAME=$1
+SCRIPT_NAME=$(basename "${SCRIPT_PATHNAME}")
 
 # If no script is provided, exit.
 if [ -z "$SCRIPT_NAME" ]; then
@@ -15,8 +13,8 @@ if [ -z "$SCRIPT_NAME" ]; then
 fi
 
 # If the script is not a file, exit.
-if [ ! -f "${VS_ROOT}/src/scripts/${SCRIPT_NAME}" ]; then
-  echo "Script ${SCRIPT_NAME} not found"
+if [ ! -f "${SCRIPT_PATHNAME}" ]; then
+  echo "Script ${SCRIPT_PATHNAME} not found"
   exit 1
 fi
 
@@ -44,4 +42,4 @@ function update-package-json() {
 # Run the script.
 ################################################################################
 
-. "${VS_ROOT}/src/scripts/${SCRIPT_NAME}"
+. "${SCRIPT_PATHNAME}"
