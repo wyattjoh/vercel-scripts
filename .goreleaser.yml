@@ -15,7 +15,8 @@ builds:
       - "aarch64-apple-darwin"
 
 homebrew_casks:
-  - description: "A powerful Deno-based CLI tool for managing Vercel and Next.js development workflows through an interactive collection of reusable scripts."
+  - binary: "vss"
+    description: "A powerful Deno-based CLI tool for managing Vercel and Next.js development workflows through an interactive collection of reusable scripts."
     dependencies:
       - formula: "jq"
     repository:
