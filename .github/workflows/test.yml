@@ -1,4 +1,4 @@
-name: Publish to JSR and Homebrew
+name: Test
 
 on:
   push:
