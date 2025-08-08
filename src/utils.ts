@@ -10,8 +10,5 @@ export function getSrcPath() {
     return path.resolve(process.cwd(), "src");
   }
 
-  return path.resolve(
-    path.dirname(new URL(import.meta.url).pathname),
-    "src",
-  );
+  return path.dirname(new URL(import.meta.url).pathname);
 }
