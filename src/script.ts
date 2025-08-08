@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { z } from "zod";
+import { fileURLToPath } from "node:url";
 
 const ScriptArgSchema = z.object({
   /**
@@ -188,7 +189,9 @@ function sortScripts(scripts: Script[]): Script[] {
 }
 
 export async function getScripts(): Promise<Script[]> {
-  const scriptsDir = path.resolve(import.meta.dirname!, "scripts");
+  const scriptsDirURL = import.meta.resolve("./scripts");
+  console.log(scriptsDirURL);
+  const scriptsDir = fileURLToPath(scriptsDirURL);
   const scriptFiles = await fs.readdir(scriptsDir);
 
   const scripts = await Promise.all(

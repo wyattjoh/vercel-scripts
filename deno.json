@@ -1,6 +1,6 @@
 {
   "name": "@wyattjoh/vercel-scripts",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "exports": {
     ".": "./src/main.ts"
   },
