@@ -42,8 +42,9 @@ runs:
 
         cd homebrew-tap
 
-        # Get the current commit SHA for the new tag
-        NEW_REVISION=$(git ls-remote https://github.com/${{ inputs.source-repository }}.git refs/tags/${NEW_TAG} | cut -f1)
+        # Get the current commit SHA for the new tag from the context
+        # Since this runs after the tag push, GITHUB_SHA should be the correct commit
+        NEW_REVISION=${GITHUB_SHA}
 
         # Update the formula file
         FORMULA_FILE="Formula/${{ inputs.formula }}.rb"
