@@ -1,0 +1,59 @@
+name: "Update Homebrew Formula"
+description: "Updates a Homebrew formula with a new version and commit revision"
+inputs:
+  tap:
+    description: "The Homebrew tap repository (e.g., user/homebrew-tap)"
+    required: true
+  formula:
+    description: "The name of the formula to update"
+    required: true
+  source-repository:
+    description: "The source repository to get the revision from"
+    required: false
+    default: ${{ github.repository }}
+  github-token:
+    description: "GitHub token with access to the tap repository"
+    required: true
+  git-user-name:
+    description: "Git user name for commits"
+    required: false
+    default: "github-actions[bot]"
+  git-user-email:
+    description: "Git user email for commits"
+    required: false
+    default: "41898282+github-actions[bot]@users.noreply.github.com"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout tap repository
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.tap }}
+        token: ${{ inputs.github-token }}
+        path: /tmp/homebrew-tap
+
+    - name: Update formula
+      shell: bash
+      run: |
+        # Extract version from tag
+        NEW_VERSION=${GITHUB_REF#refs/tags/v}
+        NEW_TAG=${GITHUB_REF#refs/tags/}
+
+        cd /tmp/homebrew-tap
+
+        # Get the current commit SHA for the new tag
+        NEW_REVISION=$(git ls-remote https://github.com/${{ inputs.source-repository }}.git refs/tags/${NEW_TAG} | cut -f1)
+
+        # Update the formula file
+        FORMULA_FILE="Formula/${{ inputs.formula }}.rb"
+        sed -i.bak "s/tag:      \".*\"/tag:      \"${NEW_TAG}\"/" "${FORMULA_FILE}"
+        sed -i.bak "s/revision: \".*\"/revision: \"${NEW_REVISION}\"/" "${FORMULA_FILE}"
+        rm "${FORMULA_FILE}.bak"
+
+        # Configure git and commit
+        git config user.name "${{ inputs.git-user-name }}"
+        git config user.email "${{ inputs.git-user-email }}"
+        git add "${FORMULA_FILE}"
+        git commit -m "${{ inputs.formula }}: update to ${NEW_TAG}"
+        git push
