@@ -33,15 +33,11 @@ jobs:
       - name: Publish packages to JSR
         run: deno publish
 
-      - name: Publish packages to Homebrew
-        uses: goreleaser/goreleaser-action@v6
+      - name: Update Homebrew formula
+        uses: dawidd6/action-homebrew-bump-formula@v5
         with:
-          version: "latest"
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
-          MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
-          MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
-          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
-          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
-          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          token: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+          no_fork: true
+          tap: wyattjoh/homebrew-stable
+          formula: vercel-scripts
+          force: true
