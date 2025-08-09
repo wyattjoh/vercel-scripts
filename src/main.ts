@@ -4,7 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { Checkbox, Confirm, Input, Select } from "@cliffy/prompt";
 import { Command } from "@cliffy/command";
-import colors from "yoctocolors";
+import colors, { gray } from "yoctocolors";
 
 import { createConfig } from "./config.ts";
 import { getScripts, prepareScript, type Script } from "./script.ts";
@@ -67,6 +67,8 @@ const main = async () => {
         name: script.name,
         checked: persisted.includes(script.pathname),
       })),
+      confirmSubmit: false,
+      uncheck: gray("✘"),
     });
   }
 

@@ -190,7 +190,6 @@ function sortScripts(scripts: Script[]): Script[] {
 
 export async function getScripts(): Promise<Script[]> {
   const scriptsDirURL = import.meta.resolve("./scripts");
-  console.log(scriptsDirURL);
   const scriptsDir = fileURLToPath(scriptsDirURL);
   const scriptFiles = await fs.readdir(scriptsDir);
 
