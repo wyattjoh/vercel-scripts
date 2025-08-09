@@ -31,7 +31,7 @@ runs:
       with:
         repository: ${{ inputs.tap }}
         token: ${{ inputs.github-token }}
-        path: ../homebrew-tap
+        path: homebrew-tap
 
     - name: Update formula
       shell: bash
@@ -40,7 +40,7 @@ runs:
         NEW_VERSION=${GITHUB_REF#refs/tags/v}
         NEW_TAG=${GITHUB_REF#refs/tags/}
 
-        cd ../homebrew-tap
+        cd homebrew-tap
 
         # Get the current commit SHA for the new tag
         NEW_REVISION=$(git ls-remote https://github.com/${{ inputs.source-repository }}.git refs/tags/${NEW_TAG} | cut -f1)
@@ -57,3 +57,7 @@ runs:
         git add "${FORMULA_FILE}"
         git commit -m "${{ inputs.formula }}: update to ${NEW_TAG}"
         git push
+
+        # Clean up by removing the checkout directory
+        cd ..
+        rm -rf homebrew-tap
