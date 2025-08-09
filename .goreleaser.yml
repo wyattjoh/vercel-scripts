@@ -10,7 +10,6 @@ builds:
       - "--allow-all"
       - "--include=src/scripts"
       - "--include=src/runtime"
-      - "--exclude=node_modules"
     targets:
       - "aarch64-apple-darwin"
 

@@ -1,6 +1,6 @@
 {
   "name": "@wyattjoh/vercel-scripts",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "exports": {
     ".": "./src/mod.ts"
   },
@@ -13,7 +13,7 @@
     "include": ["src/**/*.ts", "src/**/*.sh", "README.md"]
   },
   "tasks": {
-    "build": "deno compile --allow-all --include=src/scripts --include=src/runtime --exclude=node_modules/lefthook --output=vss src/main.ts",
+    "build": "deno compile --allow-all --include=src/scripts --include=src/runtime --output=vss src/main.ts",
     "dev": "deno run --allow-all --watch src/main.ts",
     "hooks:install": "deno run --allow-read=deno.json,.git/hooks/ --allow-write=.git/hooks/ jsr:@hongminhee/deno-task-hooks",
     "hooks:pre-commit": "deno check && deno fmt --check && deno lint",
