@@ -30,14 +30,35 @@ jobs:
       - name: Type check
         run: deno check
 
-      - name: Publish packages to JSR
-        run: deno publish
+      - name: Checkout tap repository
+        uses: actions/checkout@v4
+        with:
+          repository: wyattjoh/homebrew-stable
+          token: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+          path: homebrew-stable
 
       - name: Update Homebrew formula
-        uses: dawidd6/action-homebrew-bump-formula@v5
-        with:
-          token: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
-          no_fork: true
-          tap: wyattjoh/homebrew-stable
-          formula: vercel-scripts
-          force: true
+        run: |
+          # Extract version from tag
+          NEW_VERSION=${GITHUB_REF#refs/tags/v}
+          NEW_TAG=${GITHUB_REF#refs/tags/}
+
+          cd homebrew-stable
+
+          # Get the current commit SHA for the new tag
+          NEW_REVISION=$(git ls-remote https://github.com/wyattjoh/vercel-scripts.git refs/tags/${NEW_TAG} | cut -f1)
+
+          # Update the formula file
+          sed -i.bak "s/tag:      \".*\"/tag:      \"${NEW_TAG}\"/" Formula/vercel-scripts.rb
+          sed -i.bak "s/revision: \".*\"/revision: \"${NEW_REVISION}\"/" Formula/vercel-scripts.rb
+          rm Formula/vercel-scripts.rb.bak
+
+          # Configure git and commit
+          git config user.name "Wyatt Johnson"
+          git config user.email "me@wyattjoh.ca"
+          git add Formula/vercel-scripts.rb
+          git commit -m "vercel-scripts: update to ${NEW_TAG}"
+          git push
+
+      - name: Publish packages to JSR
+        run: deno publish
