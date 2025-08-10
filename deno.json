@@ -1,6 +1,6 @@
 {
   "name": "@wyattjoh/vercel-scripts",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "exports": {
     ".": "./src/mod.ts"
   },
@@ -8,7 +8,7 @@
     "vss": "./src/main.ts"
   },
   "$schema": "https://github.com/denoland/deno/blob/main/cli/schemas/config-file.v1.json",
-  "license": "ISC",
+  "license": "MIT",
   "publish": {
     "include": ["src/**/*.ts", "src/**/*.sh", "README.md"]
   },
@@ -19,7 +19,6 @@
     "hooks:pre-commit": "deno check && deno fmt --check && deno lint",
     "hooks:pre-push": "deno publish --dry-run --allow-dirty"
   },
-  "nodeModulesDir": "auto",
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
     "@cliffy/prompt": "jsr:@cliffy/prompt@^1.0.0-rc.8",
