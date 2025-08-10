@@ -5,6 +5,7 @@ import process from "node:process";
 import { Checkbox, Confirm, Input, Select } from "@cliffy/prompt";
 import { Command } from "@cliffy/command";
 import colors, { gray } from "yoctocolors";
+import { CompletionsCommand } from "@cliffy/command/completions";
 
 import { createConfig } from "./config.ts";
 import { getScripts, prepareScript, type Script } from "./script.ts";
@@ -50,6 +51,8 @@ const main = async () => {
     .name("vss")
     .description("Vercel Scripts Selector")
     .version(deno.version)
+    // completions command
+    .command("completions", new CompletionsCommand())
     .option("-r, --replay", "Replay the last run")
     .parse(Deno.args);
 
