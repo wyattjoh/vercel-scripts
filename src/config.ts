@@ -30,6 +30,7 @@ export const config = {
   global: createConfig<{
     args: Record<string, unknown>;
     scriptDirs: string[];
+    lastChecked?: number;
   }>(
     path.join(
       os.homedir(),

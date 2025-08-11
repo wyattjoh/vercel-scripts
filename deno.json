@@ -1,6 +1,6 @@
 {
   "name": "@wyattjoh/vercel-scripts",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "exports": {
     ".": "./src/mod.ts"
   },
@@ -23,6 +23,7 @@
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
     "@cliffy/prompt": "jsr:@cliffy/prompt@^1.0.0-rc.8",
     "@cliffy/table": "jsr:@cliffy/table@^1.0.0-rc.8",
+    "@wyattjoh/jsr-update-checker": "jsr:@wyattjoh/jsr-update-checker@^0.1.0",
     "yoctocolors": "npm:yoctocolors@^2.1.1",
     "zod": "npm:zod@^3.24.1"
   },

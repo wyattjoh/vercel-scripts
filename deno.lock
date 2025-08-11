@@ -14,7 +14,10 @@
     "jsr:@std/fmt@~1.0.2": "1.0.8",
     "jsr:@std/io@~0.224.9": "0.224.9",
     "jsr:@std/path@~1.0.6": "1.0.9",
+    "jsr:@std/semver@^1.0.5": "1.0.5",
     "jsr:@std/text@~1.0.7": "1.0.15",
+    "jsr:@wyattjoh/jsr-update-checker@0.1": "0.1.0",
+    "jsr:@wyattjoh/jsr@~0.2.2": "0.2.2",
     "npm:@types/node@*": "22.15.15",
     "npm:yoctocolors@^2.1.1": "2.1.1",
     "npm:zod@^3.24.1": "3.25.76"
@@ -84,8 +87,21 @@
     "@std/path@1.0.9": {
       "integrity": "260a49f11edd3db93dd38350bf9cd1b4d1366afa98e81b86167b4e3dd750129e"
     },
+    "@std/semver@1.0.5": {
+      "integrity": "529f79e83705714c105ad0ba55bec0f9da0f24d2f726b6cc1c15e505cc2c0624"
+    },
     "@std/text@1.0.15": {
       "integrity": "91f5cc1e12779a3d95f1be34e763f9c28a75a078b7360e6fcaef0d8d9b1e3e7f"
+    },
+    "@wyattjoh/jsr@0.2.2": {
+      "integrity": "b9a1ace3bbdab1f27ce1e7a46408973f8f655c91a09598c662341d40c4310596"
+    },
+    "@wyattjoh/jsr-update-checker@0.1.0": {
+      "integrity": "520bab2104f0f9407c31dccb52ebe6bcb6fff0629f9a87dc4e8a39a24026543d",
+      "dependencies": [
+        "jsr:@std/semver",
+        "jsr:@wyattjoh/jsr"
+      ]
     }
   },
   "npm": {
@@ -110,6 +126,7 @@
       "jsr:@cliffy/command@^1.0.0-rc.8",
       "jsr:@cliffy/prompt@^1.0.0-rc.8",
       "jsr:@cliffy/table@^1.0.0-rc.8",
+      "jsr:@wyattjoh/jsr-update-checker@0.1",
       "npm:yoctocolors@^2.1.1",
       "npm:zod@^3.24.1"
     ]

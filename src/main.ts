@@ -6,6 +6,7 @@ import { Checkbox, Confirm, Input, Select } from "@cliffy/prompt";
 import { Command } from "@cliffy/command";
 import colors, { gray } from "yoctocolors";
 import { CompletionsCommand } from "@cliffy/command/completions";
+import { checkForUpdates } from "@wyattjoh/jsr-update-checker";
 
 import { config } from "./config.ts";
 import { getScripts, prepareScript, type Script } from "./script.ts";
@@ -235,7 +236,42 @@ const runScripts = async (options: { replay?: boolean | undefined }) => {
   }
 };
 
+/**
+ * Check for CLI updates and display a message if an update is available.
+ */
+async function checkForCLIUpdates() {
+  const lastChecked = config.global.get("lastChecked");
+
+  // If we've checked in the last 24 hours, skip.
+  if (lastChecked && Date.now() - lastChecked < 1000 * 60 * 60 * 24) {
+    return;
+  }
+
+  const { latest, isUpdateAvailable } = await checkForUpdates(
+    "wyattjoh",
+    "vss",
+    deno.version,
+  );
+
+  if (isUpdateAvailable) {
+    console.log(
+      colors.yellow(
+        `A new version of VSS is available (${latest}, you have ${deno.version}), run \`brew upgrade vss\` to update`,
+      ),
+    );
+  }
+
+  config.global.set("lastChecked", Date.now());
+}
+
 const main = async () => {
+  // Check for CLI updates.
+  try {
+    await checkForCLIUpdates();
+  } catch {
+    // Ignore any update check errors
+  }
+
   const cmd = new Command()
     .name("vss")
     .description("Vercel Scripts Selector")
