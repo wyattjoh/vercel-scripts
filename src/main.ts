@@ -12,6 +12,7 @@ import { getScripts, prepareScript, type Script } from "./script.ts";
 import { listWorktrees } from "./worktree.ts";
 import { addScriptDirCommand } from "./commands/add-script-dir.ts";
 import { listScriptDirsCommand } from "./commands/list-script-dirs.ts";
+import { listScriptsCommand } from "./commands/list-scripts.ts";
 import { removeScriptDirCommand } from "./commands/remove-script-dir.ts";
 import deno from "../deno.json" with { type: "json" };
 import { fileURLToPath } from "node:url";
@@ -249,6 +250,7 @@ const main = async () => {
     .command("completions", new CompletionsCommand())
     .command("add-script-dir", addScriptDirCommand)
     .command("list-script-dirs", listScriptDirsCommand)
+    .command("list-scripts", listScriptsCommand)
     .command("remove-script-dir", removeScriptDirCommand);
 
   await cmd.parse(Deno.args);
