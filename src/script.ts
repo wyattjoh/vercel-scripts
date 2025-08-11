@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import process from "node:process";
 import { z } from "zod";
 import { fileURLToPath } from "node:url";
 
@@ -188,49 +189,75 @@ function sortScripts(scripts: Script[]): Script[] {
   return result;
 }
 
+async function getScriptsFromDirectory(
+  dir: string,
+  embedded: boolean,
+): Promise<Script[]> {
+  try {
+    const scriptFiles = await fs.readdir(dir);
+
+    const scripts = await Promise.all(
+      scriptFiles
+        .filter((file) => file.endsWith(".sh"))
+        .map(async (script) => {
+          const scriptPath = path.join(dir, script);
+          const content = await fs.readFile(scriptPath, "utf-8");
+
+          const name = getScriptAttribute(content, "name");
+          if (!name) {
+            console.warn(
+              `Script ${script} does not have a @vercel.name attribute, skipping`,
+            );
+            return null;
+          }
+
+          const description = getScriptAttribute(content, "description");
+          const after = getScriptAttribute(content, "after");
+          const args = getScriptArgs(content);
+          const opts = getScriptOpts(content);
+          const stdin = getScriptStdin(content);
+
+          return {
+            name,
+            description,
+            afterAbsolutePathnames: after
+              ?.split(" ")
+              .map((a) => path.isAbsolute(a) ? a : path.join(dir, a.trim())),
+            absolutePathname: scriptPath,
+            pathname: embedded
+              ? script
+              : path.relative(process.cwd(), scriptPath),
+            embedded,
+            args,
+            opts,
+            stdin,
+          } satisfies Script;
+        }),
+    );
+
+    return scripts.filter((s) => s !== null) as Script[];
+  } catch (error) {
+    console.warn(`Failed to read scripts from ${dir}:`, error);
+    return [];
+  }
+}
+
 export async function getScripts(): Promise<Script[]> {
+  const { config } = await import("./config.ts");
+
   const scriptsDirURL = import.meta.resolve("./scripts");
-  const scriptsDir = fileURLToPath(scriptsDirURL);
-  const scriptFiles = await fs.readdir(scriptsDir);
+  const embeddedDir = fileURLToPath(scriptsDirURL);
 
-  const scripts = await Promise.all(
-    scriptFiles.map(async (script) => {
-      // Make the script path absolute and read the file.
-      const scriptPath = path.join(scriptsDir, script);
-      const content = await fs.readFile(scriptPath, "utf-8");
+  const embeddedScripts = await getScriptsFromDirectory(embeddedDir, true);
 
-      // Parse the script content to extract the name, description, usage,
-      // example, and script.
-      const name = getScriptAttribute(content, "name");
-      if (!name) {
-        throw new Error(
-          `Script ${script} does not have a @vercel.name attribute`,
-        );
-      }
-
-      const description = getScriptAttribute(content, "description");
-      const after = getScriptAttribute(content, "after");
-      const args = getScriptArgs(content);
-      const opts = getScriptOpts(content);
-      const stdin = getScriptStdin(content);
-
-      return {
-        name,
-        description,
-        afterAbsolutePathnames: after
-          ?.split(" ")
-          .map((a) => path.join(scriptsDir, a.trim())),
-        absolutePathname: scriptPath,
-        pathname: script,
-        embedded: true,
-        args,
-        opts,
-        stdin,
-      } satisfies Script;
-    }),
+  const externalDirs = config.global.get("scriptDirs");
+  const externalScripts = await Promise.all(
+    externalDirs.map((dir) => getScriptsFromDirectory(dir, false)),
   );
 
-  const sortedScripts = sortScripts(scripts);
+  const allScripts = [...embeddedScripts, ...externalScripts.flat()];
+
+  const sortedScripts = sortScripts(allScripts);
 
   const parsedScripts: Script[] = [];
   for (const script of sortedScripts) {

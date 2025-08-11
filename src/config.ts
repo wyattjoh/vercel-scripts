@@ -1,4 +1,7 @@
 import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import process from "node:process";
 
 function loadConfigFile<T>(file: string, defaults: T) {
   try {
@@ -22,3 +25,29 @@ export function createConfig<T>(file: string, defaults: T) {
     },
   };
 }
+
+export const config = {
+  global: createConfig<{
+    args: Record<string, unknown>;
+    scriptDirs: string[];
+  }>(
+    path.join(
+      os.homedir(),
+      ".vss.json",
+    ),
+    {
+      args: {},
+      scriptDirs: [],
+    },
+  ),
+  app: createConfig<{
+    selected: string[];
+    opts: Record<string, unknown>;
+  }>(
+    path.resolve(process.cwd(), ".vss-app.json"),
+    {
+      selected: [],
+      opts: {},
+    },
+  ),
+};

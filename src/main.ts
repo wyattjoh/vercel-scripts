@@ -7,35 +7,14 @@ import { Command } from "@cliffy/command";
 import colors, { gray } from "yoctocolors";
 import { CompletionsCommand } from "@cliffy/command/completions";
 
-import { createConfig } from "./config.ts";
+import { config } from "./config.ts";
 import { getScripts, prepareScript, type Script } from "./script.ts";
 import { listWorktrees } from "./worktree.ts";
+import { addScriptDirCommand } from "./commands/add-script-dir.ts";
+import { listScriptDirsCommand } from "./commands/list-script-dirs.ts";
+import { removeScriptDirCommand } from "./commands/remove-script-dir.ts";
 import deno from "../deno.json" with { type: "json" };
 import { fileURLToPath } from "node:url";
-
-const config = {
-  global: createConfig<{
-    args: Record<string, unknown>;
-  }>(
-    path.join(
-      os.homedir(),
-      ".vss.json",
-    ),
-    {
-      args: {},
-    },
-  ),
-  app: createConfig<{
-    selected: string[];
-    opts: Record<string, unknown>;
-  }>(
-    path.resolve(process.cwd(), ".vss-app.json"),
-    {
-      selected: [],
-      opts: {},
-    },
-  ),
-};
 
 const availableColors = [
   colors.green,
@@ -46,16 +25,7 @@ const availableColors = [
   colors.red,
 ];
 
-const main = async () => {
-  const { options } = await new Command()
-    .name("vss")
-    .description("Vercel Scripts Selector")
-    .version(deno.version)
-    // completions command
-    .command("completions", new CompletionsCommand())
-    .option("-r, --replay", "Replay the last run")
-    .parse(Deno.args);
-
+const runScripts = async (options: { replay?: boolean | undefined }) => {
   const persisted = config.app.get("selected");
   const scripts = await getScripts();
 
@@ -262,6 +232,26 @@ const main = async () => {
 
     colorIndex = (colorIndex + 1) % availableColors.length;
   }
+};
+
+const main = async () => {
+  const cmd = new Command()
+    .name("vss")
+    .description("Vercel Scripts Selector")
+    .version(deno.version)
+    // subcommands
+    // main options
+    .option("-r, --replay", "Replay the last run")
+    .description("Run scripts")
+    .action(async (options) => {
+      await runScripts(options);
+    })
+    .command("completions", new CompletionsCommand())
+    .command("add-script-dir", addScriptDirCommand)
+    .command("list-script-dirs", listScriptDirsCommand)
+    .command("remove-script-dir", removeScriptDirCommand);
+
+  await cmd.parse(Deno.args);
 };
 
 if (import.meta.main) {

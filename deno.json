@@ -22,6 +22,7 @@
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
     "@cliffy/prompt": "jsr:@cliffy/prompt@^1.0.0-rc.8",
+    "@cliffy/table": "jsr:@cliffy/table@^1.0.0-rc.8",
     "yoctocolors": "npm:yoctocolors@^2.1.1",
     "zod": "npm:zod@^3.24.1"
   },
