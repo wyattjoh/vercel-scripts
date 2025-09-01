@@ -4,8 +4,8 @@
 // - `vss` refers to our own crate (defined in lib.rs)
 use clap::{Parser, Subcommand};
 use vss::{
-    check_for_updates, run_scripts, AddScriptDirCommand, Config, ListScriptDirsCommand,
-    ListScriptsCommand, RemoveScriptDirCommand, VERSION,
+    check_for_updates, run_scripts, AddScriptDirCommand, CompletionsCommand, Config,
+    ListScriptDirsCommand, ListScriptsCommand, RemoveScriptDirCommand, VERSION,
 };
 
 // RUST LEARNING: `#[derive]` is a macro that auto-generates code
@@ -49,6 +49,9 @@ enum Commands {
     /// List all available scripts
     #[command(name = "list-scripts", alias = "ls")]
     ListScripts(ListScriptsCommand),
+
+    /// Generate shell completions
+    Completions(CompletionsCommand),
 }
 
 // RUST LEARNING: Function returns `Result<(), Error>` instead of throwing exceptions
@@ -61,10 +64,12 @@ fn main() -> anyhow::Result<()> {
     // - No try/catch needed - handled by the type system
     let config = Config::new()?;
 
-    // Check for updates periodically
+    // Check for updates periodically (skip for completions command)
     // RUST LEARNING: `&config` passes a reference (like passing by reference)
     // - Allows the function to read config without taking ownership
-    check_for_updates(&config)?;
+    if !matches!(cli.command, Some(Commands::Completions(_))) {
+        check_for_updates(&config)?;
+    }
 
     // RUST LEARNING: `match` is like a switch statement but much more powerful
     // - Must handle ALL possible variants (compile-time exhaustiveness checking)
@@ -76,6 +81,10 @@ fn main() -> anyhow::Result<()> {
         Some(Commands::RemoveScriptDir(cmd)) => cmd.execute(&config),
         Some(Commands::ListScriptDirs(cmd)) => cmd.execute(&config),
         Some(Commands::ListScripts(cmd)) => cmd.execute(&config),
+        Some(Commands::Completions(cmd)) => {
+            cmd.generate_completions::<Cli>();
+            Ok(())
+        }
         // RUST LEARNING: `None` handles the case where command is undefined/null
         None => run_scripts(cli.replay, &config),
     }

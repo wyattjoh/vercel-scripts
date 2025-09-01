@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build Commands
 
 ### Using Make (Recommended)
+
 - `make build-release` - Compile optimized release binary
 - `make install` - Build and install CLI globally as `vss` command
 - `make test` - Run test suite
@@ -14,6 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `make help` - Show all available make targets
 
 ### Using Cargo Directly
+
 - `cargo build` - Compile debug binary
 - `cargo build --release` - Compile optimized release binary
 - `cargo run` - Run CLI from source
@@ -78,6 +80,7 @@ The tool remembers previous selections and allows replay with `--replay` flag.
 ## Testing
 
 Run the full test suite with `make test` or `cargo test`. Tests cover:
+
 - Configuration file operations and serialization
 - Script parsing and metadata extraction
 - Dependency resolution and topological sorting
