@@ -1,6 +1,6 @@
 # Vercel Scripts
 
-A powerful Deno-based CLI tool for managing Vercel and Next.js development workflows through an interactive collection of reusable scripts.
+A powerful Rust CLI tool for managing Vercel and Next.js development workflows through an interactive collection of reusable scripts.
 
 ## Installation
 
@@ -19,7 +19,7 @@ brew install wyattjoh/stable/vercel-scripts
 
 ## Requirements
 
-- [Homebrew](https://brew.sh)
+- [Rust](https://rustup.rs/) (for building from source)
 - [next-dev-utilities](https://github.com/wyattjoh/next-dev-utils)
 - jq - for JSON processing in scripts
 - git - for worktree functionality
@@ -38,7 +38,7 @@ The tool provides an interactive interface to select and execute development scr
 
 The tool creates configuration files to persist your settings:
 
-- `~/.vss.json` - Global user arguments (persisted in home directory)
+- `~/.vss-global.json` - Global user arguments (persisted in tool directory)
 - `.vss-app.json` - Per-project selections and options (created in working directory)
 
 ## Adding New Scripts
@@ -153,19 +153,22 @@ git clone https://github.com/wyattjoh/vercel-scripts.git
 cd vercel-scripts
 
 # Run in development
-deno run --allow-all src/main.ts
+cargo run
 
-# Build standalone executable
-deno task build
+# Build release binary
+cargo build --release
+
+# Run tests
+cargo test
 
 # Format code
-deno fmt
+cargo fmt
 
 # Lint code
-deno lint
+cargo clippy
 ```
 
-The script reads `@vercel.*` annotations from all scripts in the `src/scripts/` directory and builds comprehensive documentation including dependencies, arguments, and options.
+The CLI reads `@vercel.*` annotations from all scripts in the `src/scripts/` directory and builds comprehensive documentation including dependencies, arguments, and options.
 
 ## License
 

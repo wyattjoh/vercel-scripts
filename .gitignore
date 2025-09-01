@@ -3,3 +3,7 @@ dist
 args.json
 .vss-global.json
 vss
+
+# Added by cargo
+
+/target
