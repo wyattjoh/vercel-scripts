@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import { Checkbox, Confirm, Input, Select } from "@cliffy/prompt";
+import { Checkbox, Confirm, Input, InputOptions, Select } from "@cliffy/prompt";
 import { Command } from "@cliffy/command";
 import colors, { gray } from "yoctocolors";
 import { CompletionsCommand } from "@cliffy/command/completions";
@@ -77,47 +77,103 @@ const runScripts = async (options: { replay?: boolean | undefined }) => {
         // If we already have the option, skip it.
         if (opts[opt.name] !== undefined) continue;
 
-        if (opt.type === "boolean") {
-          const value = await Confirm.prompt({
-            message: opt.description,
-            default: opt.default as boolean,
-          });
-
-          opts[opt.name] = value;
-        } else if (opt.type === "worktree") {
-          if (!opt.baseDirArg) {
-            console.warn(`Worktree option ${opt.name} missing baseDirArg`);
-            continue;
-          }
-
-          const baseDir = args[opt.baseDirArg];
-          if (!baseDir || typeof baseDir !== "string") {
-            console.warn(
-              `Base directory ${opt.baseDirArg} not set, skipping ${opt.name}`,
-            );
-            continue;
-          }
-
-          const worktrees = listWorktrees(baseDir);
-          const choices = [
-            { value: null, name: "(Use base directory)" },
-            ...worktrees.map((wt) => ({
-              value: wt.path,
-              name: `${wt.branch} (${path.relative(baseDir, wt.path)})`,
-            })),
-          ];
-
-          // Only prompt if there are worktrees or if not optional
-          if (worktrees.length > 0 || !opt.optional) {
-            const value = await Select.prompt({
+        switch (opt.type) {
+          case "boolean": {
+            const value = await Confirm.prompt({
               message: opt.description,
-              options: choices.map((choice) => ({
-                name: choice.name,
-                value: choice.value,
-              })),
-              default: (opt.default as string | null) ?? null,
+              default: opt.default as boolean,
             });
+
             opts[opt.name] = value;
+            break;
+          }
+
+          case "worktree": {
+            if (!opt.baseDirArg) {
+              console.warn(`Worktree option ${opt.name} missing baseDirArg`);
+              continue;
+            }
+
+            const baseDir = args[opt.baseDirArg];
+            if (!baseDir || typeof baseDir !== "string") {
+              console.warn(
+                `Base directory ${opt.baseDirArg} not set, skipping ${opt.name}`,
+              );
+              continue;
+            }
+
+            const worktrees = listWorktrees(baseDir);
+            const choices = [
+              { value: null, name: "(Use base directory)" },
+              ...worktrees.map((wt) => ({
+                value: wt.path,
+                name: `${wt.branch} (${path.relative(baseDir, wt.path)})`,
+              })),
+            ];
+
+            // Only prompt if there are worktrees or if not optional
+            if (worktrees.length > 0 || !opt.optional) {
+              const value = await Select.prompt({
+                message: opt.description,
+                options: choices.map((choice) => ({
+                  name: choice.name,
+                  value: choice.value,
+                })),
+                default: (opt.default as string | null) ?? null,
+              });
+              opts[opt.name] = value;
+            }
+            break;
+          }
+
+          case "string": {
+            const options: InputOptions = {
+              message: opt.description,
+              default: opt.default as string,
+              validate: (value) => {
+                // If the value is empty and the option is optional, we can
+                // skip validation and return true.
+                if (value.length === 0 && opt.optional) {
+                  return true;
+                }
+
+                // Otherwise, we need to validate the value against the pattern.
+                if (opt.pattern) {
+                  if (new RegExp(opt.pattern).test(value)) {
+                    return true;
+                  }
+
+                  // If we have a pattern help, return it.
+                  if (opt.pattern_help) {
+                    return opt.pattern_help;
+                  }
+
+                  return false;
+                }
+
+                if (value.length === 0) {
+                  if (opt.pattern_help) {
+                    return opt.pattern_help;
+                  }
+
+                  return "Value is required";
+                }
+
+                return true;
+              },
+            };
+
+            const value = await Input.prompt(options);
+
+            opts[opt.name] = value;
+            break;
+          }
+
+          default: {
+            // A type check to ensure that all script options are handled. If
+            // this is erroring, then a new script option type has been added
+            // and needs to be handled.
+            opt satisfies never;
           }
         }
       }

@@ -1,7 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import process from "node:process";
 import { z } from "zod";
 import { fileURLToPath } from "node:url";
 
@@ -19,14 +18,32 @@ const ScriptArgSchema = z.object({
 
 export type ScriptArg = z.infer<typeof ScriptArgSchema>;
 
-const ScriptOptSchema = z.object({
-  name: z.string(),
-  description: z.string(),
-  type: z.enum(["boolean", "worktree"]),
-  default: z.union([z.boolean(), z.string(), z.null()]),
-  baseDirArg: z.string().optional(),
-  optional: z.boolean().optional(),
-});
+const ScriptOptSchema = z.discriminatedUnion("type", [
+  z.object({
+    name: z.string(),
+    description: z.string(),
+    type: z.literal("boolean"),
+    default: z.union([z.boolean(), z.null()]),
+    optional: z.boolean().optional(),
+  }),
+  z.object({
+    name: z.string(),
+    description: z.string(),
+    type: z.literal("worktree"),
+    default: z.union([z.string(), z.null()]),
+    baseDirArg: z.string(),
+    optional: z.boolean().optional(),
+  }),
+  z.object({
+    name: z.string(),
+    description: z.string(),
+    type: z.literal("string"),
+    default: z.union([z.string(), z.null()]),
+    optional: z.boolean().optional(),
+    pattern: z.string().optional(),
+    pattern_help: z.string().optional(),
+  }),
+]);
 
 export type ScriptOpt = z.infer<typeof ScriptOptSchema>;
 
@@ -43,9 +60,10 @@ const ScriptSchema = z.object({
 
   /**
    * The scripts that should be run after this script. It will be a list of the
-   * absolute paths to the scripts.
+   * relative names of the scripts. These are not absolute paths and will be
+   * resolved in priority order.
    */
-  afterAbsolutePathnames: z.array(z.string()).optional(),
+  after: z.array(z.string()).optional(),
 
   /**
    * The absolute path to the script.
@@ -127,7 +145,10 @@ function getScriptStdin(content: string): "inherit" | undefined {
 }
 
 // Implement topological sort for dependency ordering
-function sortScripts(scripts: Script[]): Script[] {
+async function sortScripts(
+  scripts: Script[],
+  directories: string[],
+): Promise<Script[]> {
   // Create a map of script paths to their indices for quick lookup
   const scriptPathToIndex = new Map<string, number>();
   scripts.forEach((script, index) => {
@@ -143,10 +164,54 @@ function sortScripts(scripts: Script[]): Script[] {
     graph.set(index, []);
   });
 
+  const cache = new Map<string, string>();
+
+  // First we need to resolve all the after scripts. So let's collect all the
+  // after scripts and place them into the cache.
+  const afters = new Map<string, string[]>();
+  for (const script of scripts) {
+    if (!script.after) continue;
+
+    for (const after of script.after) {
+      afters.set(after, [
+        ...(afters.get(after) || []),
+        script.absolutePathname,
+      ]);
+    }
+  }
+
+  // Then, resolve each of the after scripts at the same time to check to see
+  // which directory they're in to resolve their absolute pathnames.
+  await Promise.all(
+    Array.from(afters.keys()).map(async (after) => {
+      for (const directory of directories) {
+        const absolutePathname = path.join(directory, after);
+        const exists = await fs.stat(absolutePathname).then(() => true).catch(
+          () => false,
+        );
+        if (exists) {
+          cache.set(after, absolutePathname);
+          break;
+        }
+      }
+
+      if (!cache.has(after)) {
+        throw new Error(
+          `After script ${after} not found in any known script directory in ${
+            afters.get(after)!.join(
+              ", ",
+            )
+          }`,
+        );
+      }
+    }),
+  );
+
   // Build the graph and calculate in-degrees
   scripts.forEach((script, currentIndex) => {
-    if (script.afterAbsolutePathnames) {
-      for (const dependencyPath of script.afterAbsolutePathnames) {
+    if (script.after) {
+      for (const after of script.after) {
+        const dependencyPath = cache.get(after)!;
         const dependencyIndex = scriptPathToIndex.get(dependencyPath);
         if (dependencyIndex !== undefined) {
           graph.get(dependencyIndex)?.push(currentIndex);
@@ -183,7 +248,11 @@ function sortScripts(scripts: Script[]): Script[] {
 
   // Check for circular dependencies
   if (result.length !== scripts.length) {
-    throw new Error("Circular dependency detected in scripts");
+    throw new Error(
+      `Circular dependency detected in scripts ${
+        result.map((s) => s.pathname).join(", ")
+      }`,
+    );
   }
 
   return result;
@@ -203,14 +272,7 @@ async function getScriptsFromDirectory(
           const scriptPath = path.join(dir, script);
           const content = await fs.readFile(scriptPath, "utf-8");
 
-          const name = getScriptAttribute(content, "name");
-          if (!name) {
-            console.warn(
-              `Script ${script} does not have a @vercel.name attribute, skipping`,
-            );
-            return null;
-          }
-
+          const name = getScriptAttribute(content, "name") ?? script;
           const description = getScriptAttribute(content, "description");
           const after = getScriptAttribute(content, "after");
           const args = getScriptArgs(content);
@@ -220,13 +282,9 @@ async function getScriptsFromDirectory(
           return {
             name,
             description,
-            afterAbsolutePathnames: after
-              ?.split(" ")
-              .map((a) => path.isAbsolute(a) ? a : path.join(dir, a.trim())),
+            after: after?.split(" "),
             absolutePathname: scriptPath,
-            pathname: embedded
-              ? script
-              : path.relative(process.cwd(), scriptPath),
+            pathname: script,
             embedded,
             args,
             opts,
@@ -257,7 +315,10 @@ export async function getScripts(): Promise<Script[]> {
 
   const allScripts = [...embeddedScripts, ...externalScripts.flat()];
 
-  const sortedScripts = sortScripts(allScripts);
+  const sortedScripts = await sortScripts(allScripts, [
+    embeddedDir,
+    ...externalDirs,
+  ]);
 
   const parsedScripts: Script[] = [];
   for (const script of sortedScripts) {
