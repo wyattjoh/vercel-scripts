@@ -29,7 +29,7 @@ pub mod worktree;
 pub use config::Config;
 pub use script::{Script, ScriptManager, ScriptOpt};
 // Export ScriptArg for users who need access to script arguments
-pub use cli::runner::{check_for_updates, run_scripts};
+pub use cli::runner::run_scripts;
 pub use script::types::ScriptArg;
 pub use worktree::{Worktree, WorktreeManager};
 

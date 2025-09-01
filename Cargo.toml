@@ -3,7 +3,7 @@
 # - Much more explicit than package.json's flexible structure
 [package]
 name = "vss" # Binary name (like "name" in package.json)
-version = "0.2.0" # Semantic versioning (like package.json)
+version = "0.2.1" # Semantic versioning (like package.json)
 edition = "2021" # RUST LEARNING: Rust edition (language version)
 authors = ["Wyatt Johnson"]
 description = "Vercel Scripts Selector - Interactive script runner for Vercel development workflows"

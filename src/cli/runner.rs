@@ -323,32 +323,3 @@ fn execute_scripts(
 
     Ok(())
 }
-
-pub fn check_for_updates(config: &Config) -> anyhow::Result<()> {
-    let current_config = config.global.get_config()?;
-
-    // Check if we've checked in the last 24 hours
-    if let Some(last_checked) = current_config.last_checked {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
-
-        if now - last_checked < 86400 {
-            // 24 hours
-            return Ok(());
-        }
-    }
-
-    // Update check implementation would go here
-    // For now, just update the last checked timestamp
-    config.global.update_config(|cfg| {
-        cfg.last_checked = Some(
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-        );
-    })?;
-
-    Ok(())
-}

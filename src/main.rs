@@ -4,8 +4,8 @@
 // - `vss` refers to our own crate (defined in lib.rs)
 use clap::{Parser, Subcommand};
 use vss::{
-    check_for_updates, run_scripts, AddScriptDirCommand, CompletionsCommand, Config,
-    ListScriptDirsCommand, ListScriptsCommand, RemoveScriptDirCommand, VERSION,
+    run_scripts, AddScriptDirCommand, CompletionsCommand, Config, ListScriptDirsCommand,
+    ListScriptsCommand, RemoveScriptDirCommand, VERSION,
 };
 
 // RUST LEARNING: `#[derive]` is a macro that auto-generates code
@@ -63,13 +63,6 @@ fn main() -> anyhow::Result<()> {
     // - If Config::new() fails, it immediately returns the error
     // - No try/catch needed - handled by the type system
     let config = Config::new()?;
-
-    // Check for updates periodically (skip for completions command)
-    // RUST LEARNING: `&config` passes a reference (like passing by reference)
-    // - Allows the function to read config without taking ownership
-    if !matches!(cli.command, Some(Commands::Completions(_))) {
-        check_for_updates(&config)?;
-    }
 
     // RUST LEARNING: `match` is like a switch statement but much more powerful
     // - Must handle ALL possible variants (compile-time exhaustiveness checking)
