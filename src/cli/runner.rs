@@ -56,7 +56,18 @@ pub fn run_scripts(replay: bool, config: &Config) -> VssResult<()> {
         // Interactive script selection
         // RUST LEARNING: Type annotation `Vec<String>` is explicit but often optional
         // - Rust can usually infer types from usage
-        let script_names: Vec<String> = scripts.iter().map(|s| s.name.clone()).collect();
+        let script_names: Vec<String> = scripts
+            .iter()
+            .map(|s| {
+                format!(
+                    "{} {}{}{}",
+                    s.name,
+                    "(".bright_black(),
+                    s.pathname.bright_black(),
+                    ")".bright_black()
+                )
+            })
+            .collect();
 
         // Convert boolean defaults to indices for inquire
         let default_indices: Vec<usize> = scripts
@@ -79,11 +90,19 @@ pub fn run_scripts(replay: bool, config: &Config) -> VssResult<()> {
                 .prompt()?; // The `?` propagates any interaction errors
 
         // inquire returns the actual selected items, not indices
+        // Map selected display names back to scripts by finding their indices
         let selected_names: std::collections::HashSet<&str> =
             selections.iter().map(|s| s.as_str()).collect();
         let selected: Vec<Script> = scripts
             .into_iter()
-            .filter(|script| selected_names.contains(script.name.as_str()))
+            .enumerate()
+            .filter_map(|(i, script)| {
+                if selected_names.contains(script_names[i].as_str()) {
+                    Some(script)
+                } else {
+                    None
+                }
+            })
             .collect();
 
         // Save selections

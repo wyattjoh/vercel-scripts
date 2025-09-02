@@ -1,3 +1,4 @@
+use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::process::Command; // RUST LEARNING: For spawning child processes (like Node's child_process)
@@ -43,9 +44,21 @@ impl Worktree {
     pub fn display_name(&self, base_dir: &Path) -> String {
         let relative = self.relative_path(base_dir);
         if relative.as_os_str().is_empty() {
-            self.branch.clone()
+            format!(
+                "{} {}{}{}",
+                self.branch,
+                "(".bright_black(),
+                base_dir.display().to_string().bright_black(),
+                ")".bright_black()
+            )
         } else {
-            format!("{} ({})", self.branch, relative.display())
+            format!(
+                "{} {}{}{}",
+                self.branch,
+                "(".bright_black(),
+                relative.display().to_string().bright_black(),
+                ")".bright_black()
+            )
         }
     }
 
@@ -224,6 +237,7 @@ detached
 
     #[test]
     fn test_worktree_display_name() {
+        // Test feature worktree
         let worktree = Worktree {
             path: PathBuf::from("/home/user/project/worktrees/feature"),
             branch: "feature-branch".to_string(),
@@ -233,7 +247,21 @@ detached
         let base_dir = PathBuf::from("/home/user/project");
         let display_name = worktree.display_name(&base_dir);
 
-        assert_eq!(display_name, "feature-branch (worktrees/feature)");
+        // The output contains ANSI color codes, so we check that it contains the expected text
+        assert!(display_name.contains("feature-branch"));
+        assert!(display_name.contains("worktrees/feature"));
+
+        // Test base directory worktree
+        let base_worktree = Worktree {
+            path: PathBuf::from("/home/user/project"),
+            branch: "main".to_string(),
+            head: "def456".to_string(),
+        };
+
+        let base_display_name = base_worktree.display_name(&base_dir);
+        // The output contains ANSI color codes, so we check that it contains the expected text
+        assert!(base_display_name.contains("main"));
+        assert!(base_display_name.contains("/home/user/project"));
     }
 
     #[test]

@@ -87,19 +87,16 @@ pub(crate) fn handle_worktree_option(
 
             // Only prompt if there are worktrees or if not optional (like TypeScript version)
             if !worktrees.is_empty() || !opt.is_optional() {
-                let mut choices = vec!["(Use base directory)".to_string()];
-                choices.extend(
-                    worktrees
-                        .iter()
-                        .map(|wt| wt.display_name(Path::new(base_dir))),
-                );
+                let choices: Vec<String> = worktrees
+                    .iter()
+                    .map(|wt| wt.display_name(Path::new(base_dir)))
+                    .collect();
 
                 // Find default index based on default value
                 let default_idx = if let Some(default_val) = default {
                     worktrees
                         .iter()
                         .position(|wt| wt.path.to_string_lossy() == *default_val)
-                        .map(|pos| pos + 1) // +1 because base directory is at index 0
                         .unwrap_or(0)
                 } else {
                     0
@@ -109,15 +106,12 @@ pub(crate) fn handle_worktree_option(
                     .with_starting_cursor(default_idx)
                     .prompt()?;
 
-                // inquire returns the actual selected item, not an index
-                if selection != "(Use base directory)" {
-                    // Find the worktree that matches the selection
-                    if let Some(worktree) = worktrees
-                        .iter()
-                        .find(|wt| wt.display_name(Path::new(base_dir)) == selection)
-                    {
-                        return Ok(Some(worktree.path.to_string_lossy().to_string()));
-                    }
+                // Find the worktree that matches the selection
+                if let Some(worktree) = worktrees
+                    .iter()
+                    .find(|wt| wt.display_name(Path::new(base_dir)) == selection)
+                {
+                    return Ok(Some(worktree.path.to_string_lossy().to_string()));
                 }
             }
         }
