@@ -1,7 +1,7 @@
 use crate::config::Config;
 use clap::Args;
 use colored::Colorize;
-use dialoguer::{Confirm, Select};
+use inquire::{Confirm, Select};
 use std::path::Path;
 
 #[derive(Args)]
@@ -53,21 +53,21 @@ impl RemoveScriptDirCommand {
             if current_config.script_dirs.len() == 1 {
                 current_config.script_dirs[0].clone()
             } else {
-                let selection = Select::new()
-                    .with_prompt("Which script directory do you want to remove?")
-                    .items(&current_config.script_dirs)
-                    .interact()?;
+                let selection = Select::new(
+                    "Which script directory do you want to remove?",
+                    current_config.script_dirs.clone(),
+                )
+                .prompt()?;
 
-                current_config.script_dirs[selection].clone()
+                selection
             }
         };
 
         // Confirm removal unless --yes flag is used
         if !self.yes {
-            let confirm = Confirm::new()
-                .with_prompt(format!("Remove script directory '{}'?", dir_to_remove))
-                .default(false)
-                .interact()?;
+            let confirm = Confirm::new(&format!("Remove script directory '{}'?", dir_to_remove))
+                .with_default(false)
+                .prompt()?;
 
             if !confirm {
                 println!("Operation cancelled");

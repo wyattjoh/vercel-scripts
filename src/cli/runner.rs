@@ -2,7 +2,7 @@ use crate::cli::prompts::{handle_boolean_option, handle_string_option, handle_wo
 use crate::config::Config;
 use crate::script::{Script, ScriptManager, ScriptOpt};
 use colored::{Color, Colorize};
-use dialoguer::{theme::ColorfulTheme, Input, MultiSelect};
+use inquire::{MultiSelect, Text};
 use log::debug;
 use std::collections::HashMap;
 use std::env;
@@ -54,21 +54,33 @@ pub fn run_scripts(replay: bool, config: &Config) -> anyhow::Result<()> {
         // RUST LEARNING: Type annotation `Vec<String>` is explicit but often optional
         // - Rust can usually infer types from usage
         let script_names: Vec<String> = scripts.iter().map(|s| s.name.clone()).collect();
-        let defaults: Vec<bool> = scripts
+
+        // Convert boolean defaults to indices for inquire
+        let default_indices: Vec<usize> = scripts
             .iter()
-            .map(|s| app_config.selected.contains(&s.pathname))
+            .enumerate()
+            .filter_map(|(i, s)| {
+                if app_config.selected.contains(&s.pathname) {
+                    Some(i)
+                } else {
+                    None
+                }
+            })
             .collect();
 
         // RUST LEARNING: Builder pattern with method chaining (like jQuery or axios)
-        let selections = MultiSelect::with_theme(&ColorfulTheme::default())
-            .with_prompt("Which scripts do you want to run?")
-            .items(&script_names)
-            .defaults(&defaults)
-            .interact()?; // The `?` propagates any interaction errors
+        let selections =
+            MultiSelect::new("Which scripts do you want to run?", script_names.clone())
+                .with_default(&default_indices)
+                .with_page_size(script_names.len())
+                .prompt()?; // The `?` propagates any interaction errors
 
-        let selected: Vec<Script> = selections
+        // inquire returns the actual selected items, not indices
+        let selected_names: std::collections::HashSet<&str> =
+            selections.iter().map(|s| s.as_str()).collect();
+        let selected: Vec<Script> = scripts
             .into_iter()
-            .map(|idx| scripts[idx].clone())
+            .filter(|script| selected_names.contains(script.name.as_str()))
             .collect();
 
         // Save selections
@@ -126,19 +138,18 @@ fn collect_script_inputs(
         if let Some(ref args) = script.args {
             for arg in args {
                 if !global_args.contains_key(&arg.name) {
-                    let value: String = Input::new()
-                        .with_prompt(format!(
-                            "Enter a directory path for {} - {}",
-                            arg.name.cyan(),
-                            arg.description
-                        ))
-                        .default(
-                            dirs::home_dir()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                                .to_string(),
-                        )
-                        .interact_text()?;
+                    let value: String = Text::new(&format!(
+                        "Enter a directory path for {} - {}",
+                        arg.name.cyan(),
+                        arg.description
+                    ))
+                    .with_default(
+                        dirs::home_dir()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .as_ref(),
+                    )
+                    .prompt()?;
 
                     global_args.insert(arg.name.clone(), serde_json::Value::String(value));
                 }

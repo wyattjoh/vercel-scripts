@@ -1,7 +1,7 @@
 use crate::script::ScriptOpt;
 use crate::worktree::WorktreeManager;
 use colored::Colorize;
-use dialoguer::{Confirm, Input, Select};
+use inquire::{Confirm, Select, Text};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -10,10 +10,9 @@ pub(crate) fn handle_boolean_option(
     opt: &ScriptOpt,
     default: &Option<bool>,
 ) -> anyhow::Result<bool> {
-    let value = Confirm::new()
-        .with_prompt(opt.description())
-        .default(default.unwrap_or(false))
-        .interact()?;
+    let value = Confirm::new(opt.description())
+        .with_default(default.unwrap_or(false))
+        .prompt()?;
     Ok(value)
 }
 
@@ -25,13 +24,13 @@ pub(crate) fn handle_string_option(
     pattern_help: &Option<String>,
 ) -> anyhow::Result<Option<String>> {
     let value = loop {
-        let mut input = Input::new().with_prompt(opt.description());
+        let mut input = Text::new(opt.description());
 
         if let Some(def) = default {
-            input = input.default(def.clone());
+            input = input.with_default(def);
         }
 
-        let input_value: String = input.interact_text()?;
+        let input_value: String = input.prompt()?;
 
         // Handle validation like TypeScript version
         if let Some(pattern) = pattern {
@@ -108,15 +107,19 @@ pub(crate) fn handle_worktree_option(
                     0
                 };
 
-                let selection = Select::new()
-                    .with_prompt(opt.description())
-                    .items(&choices)
-                    .default(default_idx)
-                    .interact()?;
+                let selection = Select::new(opt.description(), choices)
+                    .with_starting_cursor(default_idx)
+                    .prompt()?;
 
-                if selection > 0 {
-                    let worktree = &worktrees[selection - 1];
-                    return Ok(Some(worktree.path.to_string_lossy().to_string()));
+                // inquire returns the actual selected item, not an index
+                if selection != "(Use base directory)" {
+                    // Find the worktree that matches the selection
+                    if let Some(worktree) = worktrees
+                        .iter()
+                        .find(|wt| wt.display_name(Path::new(base_dir)) == selection)
+                    {
+                        return Ok(Some(worktree.path.to_string_lossy().to_string()));
+                    }
                 }
             }
         }
