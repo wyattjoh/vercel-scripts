@@ -137,7 +137,7 @@ impl ScriptManager {
         Ok(scripts)
     }
 
-    fn sort_scripts(&self, scripts: Vec<Script>, _external_dirs: &[String]) -> Result<Vec<Script>> {
+    fn sort_scripts(&self, scripts: Vec<Script>, external_dirs: &[String]) -> Result<Vec<Script>> {
         debug!("Building dependency graph for {} scripts", scripts.len());
         let mut graph = DiGraph::new();
         let mut script_indices = HashMap::new();
@@ -192,10 +192,8 @@ impl ScriptManager {
                             path_to_script.get(&dep_path)
                         }
                     } else {
-                        // Filename lookup in embedded scripts and external dirs
-                        let dep_path = std::path::PathBuf::from(dep);
-                        debug!("Resolving filename dependency: {} -> {:?}", dep, dep_path);
-                        path_to_script.get(&dep_path)
+                        // Filename lookup - search in embedded scripts first, then external dirs
+                        self.resolve_dependency_across_dirs(dep, external_dirs, &path_to_script)
                     };
 
                     if let Some(&dep_idx) = dep_script_index {
@@ -215,8 +213,11 @@ impl ScriptManager {
                             graph.add_edge(dep_node, script_node, ());
                         }
                     } else {
-                        debug!("Dependency not found: {}", dep);
-                        return Err(ScriptError::DependencyNotFound(dep.clone()));
+                        // Provide better error message showing which script had the missing dependency
+                        return Err(ScriptError::DependencyNotFound(format!(
+                            "Dependency '{}' not found in any known script directory for script '{}'",
+                            dep, script.name
+                        )));
                     }
                 }
             }
@@ -237,6 +238,34 @@ impl ScriptManager {
         debug!("Final execution order: {:?}", script_names);
 
         Ok(sorted_scripts)
+    }
+
+    /// Resolve a dependency by searching across directories like TypeScript version
+    fn resolve_dependency_across_dirs<'a>(
+        &self,
+        dep: &str,
+        external_dirs: &[String],
+        path_to_script: &'a HashMap<std::path::PathBuf, usize>,
+    ) -> Option<&'a usize> {
+        let dep_path = std::path::PathBuf::from(dep);
+
+        // First try direct filename lookup (for embedded scripts)
+        if let Some(script_idx) = path_to_script.get(&dep_path) {
+            debug!("Found dependency '{}' in embedded scripts", dep);
+            return Some(script_idx);
+        }
+
+        // Then try searching in each external directory
+        for dir in external_dirs {
+            let full_dep_path = std::path::Path::new(dir).join(dep);
+            if let Some(script_idx) = path_to_script.get(&full_dep_path) {
+                debug!("Found dependency '{}' in directory '{}'", dep, dir);
+                return Some(script_idx);
+            }
+        }
+
+        debug!("Could not resolve dependency '{}' in any directory", dep);
+        None
     }
 
     pub fn prepare_runtime(&mut self) -> Result<std::path::PathBuf> {

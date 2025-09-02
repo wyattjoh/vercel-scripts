@@ -1,13 +1,24 @@
 use crate::cli::prompts::{handle_boolean_option, handle_string_option, handle_worktree_option};
 use crate::config::Config;
 use crate::script::{Script, ScriptManager, ScriptOpt};
-use colored::Colorize; // RUST LEARNING: Trait to add color methods to strings
-use dialoguer::{theme::ColorfulTheme, Input, MultiSelect}; // RUST LEARNING: CLI interaction library
+use colored::{Color, Colorize};
+use dialoguer::{theme::ColorfulTheme, Input, MultiSelect};
 use log::debug;
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader}; // RUST LEARNING: Buffered I/O for reading process output
-use std::process::{Command, Stdio}; // RUST LEARNING: For process execution and I/O redirection
-use std::thread; // RUST LEARNING: For spawning threads (like Web Workers or Node workers)
+use std::env;
+use std::io::{BufRead, BufReader};
+use std::process::{Command, Stdio};
+use std::thread;
+
+/// Available colors for script output, matching TypeScript version
+const AVAILABLE_COLORS: &[Color] = &[
+    Color::Green,
+    Color::Yellow,
+    Color::Blue,
+    Color::Magenta,
+    Color::Cyan,
+    Color::Red,
+];
 
 pub fn run_scripts(replay: bool, config: &Config) -> anyhow::Result<()> {
     let current_config = config.global.get_config()?;
@@ -159,9 +170,13 @@ fn collect_script_inputs(
                                 );
                             }
                         }
-                        ScriptOpt::Worktree { base_dir_arg, .. } => {
+                        ScriptOpt::Worktree {
+                            base_dir_arg,
+                            default,
+                            ..
+                        } => {
                             if let Some(value) =
-                                handle_worktree_option(opt, base_dir_arg, global_args)?
+                                handle_worktree_option(opt, base_dir_arg, default, global_args)?
                             {
                                 app_opts.insert(
                                     opt.name().to_string(),
@@ -187,19 +202,10 @@ fn execute_scripts(
     app_opts: &HashMap<String, serde_json::Value>,
     script_manager: &mut ScriptManager,
 ) -> anyhow::Result<()> {
-    let colors = [
-        colored::Color::Green,
-        colored::Color::Yellow,
-        colored::Color::Blue,
-        colored::Color::Magenta,
-        colored::Color::Cyan,
-        colored::Color::Red,
-    ];
-
     // RUST LEARNING: `enumerate()` gives (index, item) tuples (like Array.entries() in JS)
     for (index, script) in scripts.iter().enumerate() {
-        // RUST LEARNING: Modulo operator for cycling through colors
-        let color = colors[index % colors.len()];
+        // RUST LEARNING: Modulo operator for cycling through colors (like TypeScript version)
+        let color = AVAILABLE_COLORS[index % AVAILABLE_COLORS.len()];
 
         debug!("Executing script: {}", script.name);
 
@@ -284,12 +290,17 @@ fn execute_scripts(
         // RUST LEARNING: Builder pattern for process configuration
         // - Each method returns Self, allowing method chaining
         // - `spawn()` starts the process and returns a Child handle
+        // Ensure proper shell environment (like TypeScript version's shell: true)
         let mut cmd = Command::new(&runtime_path)
             .arg(&script_path)
             .stdin(stdio)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .envs(&env_vars) // Set all environment variables at once
+            .env(
+                "SHELL",
+                env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string()),
+            ) // Ensure shell is set
             .spawn()?;
 
         // Handle output if not inheriting stdin

@@ -33,24 +33,37 @@ pub(crate) fn handle_string_option(
 
         let input_value: String = input.interact_text()?;
 
+        // Handle validation like TypeScript version
         if let Some(pattern) = pattern {
             let re = regex::Regex::new(pattern)?;
-            if re.is_match(&input_value) || (input_value.is_empty() && opt.is_optional()) {
+
+            // If empty and optional, skip validation
+            if input_value.is_empty() && opt.is_optional() {
+                break input_value;
+            }
+
+            if re.is_match(&input_value) {
                 break input_value;
             } else {
-                println!(
-                    "{}",
-                    pattern_help
-                        .as_deref()
-                        .unwrap_or("Invalid input format")
-                        .red()
-                );
+                // Show pattern help if available, otherwise default message
+                let error_msg = if let Some(help) = pattern_help {
+                    help.clone()
+                } else {
+                    "Invalid input format".to_string()
+                };
+                println!("{}", error_msg.red());
                 continue;
             }
         }
 
+        // Check for empty values on required fields
         if input_value.is_empty() && !opt.is_optional() {
-            println!("{}", "Value is required".red());
+            let error_msg = if pattern_help.is_some() {
+                pattern_help.as_deref().unwrap()
+            } else {
+                "Value is required"
+            };
+            println!("{}", error_msg.red());
             continue;
         }
 
@@ -68,12 +81,14 @@ pub(crate) fn handle_string_option(
 pub(crate) fn handle_worktree_option(
     opt: &ScriptOpt,
     base_dir_arg: &str,
+    default: &Option<String>,
     global_args: &HashMap<String, serde_json::Value>,
 ) -> anyhow::Result<Option<String>> {
     if let Some(base_dir_value) = global_args.get(base_dir_arg) {
         if let serde_json::Value::String(base_dir) = base_dir_value {
             let worktrees = WorktreeManager::list_worktrees(base_dir).unwrap_or_default();
 
+            // Only prompt if there are worktrees or if not optional (like TypeScript version)
             if !worktrees.is_empty() || !opt.is_optional() {
                 let mut choices = vec!["(Use base directory)".to_string()];
                 choices.extend(
@@ -82,10 +97,21 @@ pub(crate) fn handle_worktree_option(
                         .map(|wt| wt.display_name(Path::new(base_dir))),
                 );
 
+                // Find default index based on default value
+                let default_idx = if let Some(default_val) = default {
+                    worktrees
+                        .iter()
+                        .position(|wt| wt.path.to_string_lossy() == *default_val)
+                        .map(|pos| pos + 1) // +1 because base directory is at index 0
+                        .unwrap_or(0)
+                } else {
+                    0
+                };
+
                 let selection = Select::new()
                     .with_prompt(opt.description())
                     .items(&choices)
-                    .default(0)
+                    .default(default_idx)
                     .interact()?;
 
                 if selection > 0 {
@@ -103,5 +129,6 @@ pub(crate) fn handle_worktree_option(
         );
     }
 
-    Ok(None)
+    // Return default value if available, otherwise None
+    Ok(default.clone())
 }

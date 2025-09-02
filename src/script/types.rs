@@ -42,6 +42,7 @@ pub enum ScriptOpt {
         // - Handles both "base_dir_arg" and "baseDirArg" in JSON
         #[serde(alias = "baseDirArg")]
         base_dir_arg: String,
+        default: Option<String>,
         #[serde(default)]
         optional: bool,
     },
