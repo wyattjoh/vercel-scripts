@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 
 # @vercel.name Link Project (vercel link)
 # @vercel.description Link the project to the vercel/vercel repo

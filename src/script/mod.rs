@@ -18,12 +18,14 @@ pub enum ScriptError {
     InvalidScriptOption(String),
     #[error("Invalid path - cannot extract filename: {0}")]
     InvalidPath(std::path::PathBuf),
+    #[error("Invalid dependency path: {0}")]
+    InvalidDependencyPath(String),
 }
 
 pub type Result<T> = std::result::Result<T, ScriptError>;
 
 pub use manager::ScriptManager;
-pub use types::{Script, ScriptOpt};
+pub use types::{Script, ScriptOpt, ScriptRequirement};
 
 #[cfg(test)]
 mod tests {
@@ -33,7 +35,7 @@ mod tests {
 
     #[test]
     fn test_script_parser() {
-        let content = r#"#!/bin/bash
+        let content = r#"#!/usr/bin/env zsh
 # @vercel.name Test Script
 # @vercel.description This is a test script
 # @vercel.arg TEST_ARG This is a test argument
@@ -62,8 +64,36 @@ echo "Hello World"
     }
 
     #[test]
+    fn test_script_parser_with_requires() {
+        let content = r#"#!/usr/bin/env zsh
+# @vercel.name Test Script With Requirements
+# @vercel.description This script requires variables from another script
+# @vercel.requires ./setup.sh PROJECT_ID API_KEY
+# @vercel.requires ./config.sh DB_URL
+echo "Using PROJECT_ID: $PROJECT_ID"
+"#;
+
+        let path = Path::new("test_requires.sh");
+        let script = ScriptParser::parse_script(content, path, false).unwrap();
+
+        assert_eq!(script.name, "Test Script With Requirements");
+        assert!(script.requires.is_some());
+
+        let requirements = script.requires.unwrap();
+        assert_eq!(requirements.len(), 2);
+
+        // First requirement
+        assert_eq!(requirements[0].script, "./setup.sh");
+        assert_eq!(requirements[0].variables, vec!["PROJECT_ID", "API_KEY"]);
+
+        // Second requirement
+        assert_eq!(requirements[1].script, "./config.sh");
+        assert_eq!(requirements[1].variables, vec!["DB_URL"]);
+    }
+
+    #[test]
     fn test_script_parser_invalid_path() {
-        let content = r#"#!/bin/bash
+        let content = r#"#!/usr/bin/env zsh
 echo "Hello World"
 "#;
 
@@ -139,7 +169,7 @@ echo "Hello World"
         let script_path = temp_dir.path().join("external_script.sh");
 
         // Create a test script
-        let script_content = r#"#!/bin/bash
+        let script_content = r#"#!/usr/bin/env zsh
 # @vercel.name External Test Script
 echo "Hello from external script"
 "#;
@@ -268,6 +298,7 @@ echo "Hello from external script"
             name: "Invalid Script".to_string(),
             description: None,
             after: None,
+            requires: None,
             absolute_pathname: dir_path, // This is a directory, not a file
             pathname: "invalid".to_string(),
             embedded: false,
@@ -299,6 +330,7 @@ echo "Hello from external script"
             name: "No Filename Script".to_string(),
             description: None,
             after: None,
+            requires: None,
             absolute_pathname: PathBuf::new(), // Empty path - no filename
             pathname: "empty".to_string(),
             embedded: false,
@@ -314,5 +346,158 @@ echo "Hello from external script"
             ScriptError::InvalidPath(_) => {} // This is what we expect
             other => panic!("Expected InvalidPath error, got: {:?}", other),
         }
+    }
+
+    #[test]
+    fn test_absolute_pathname_resolution() {
+        use std::fs;
+        use tempfile::TempDir;
+
+        // Create a temporary directory with a script
+        let temp_dir = TempDir::new().unwrap();
+        let script_path = temp_dir.path().join("test_absolute.sh");
+
+        let script_content = r#"#!/bin/bash
+# @vercel.name Test Absolute Path
+echo "testing absolute path resolution"
+"#;
+        fs::write(&script_path, script_content).unwrap();
+
+        let manager = ScriptManager::new();
+
+        // Test with absolute directory path first
+        let scripts = manager
+            .load_scripts_from_directory(temp_dir.path().to_str().unwrap(), false)
+            .unwrap();
+
+        // Should find our test script
+        assert_eq!(scripts.len(), 1, "Should find exactly one script");
+        let script = &scripts[0];
+
+        // Verify the absolute_pathname is actually absolute
+        assert!(
+            script.absolute_pathname.is_absolute(),
+            "Script absolute_pathname should be absolute"
+        );
+
+        // Verify it's the canonical (resolved) path
+        let expected_absolute = script_path.canonicalize().unwrap();
+        assert_eq!(
+            script.absolute_pathname, expected_absolute,
+            "Script absolute_pathname should match canonicalized path"
+        );
+
+        // Verify the script name and other metadata were parsed correctly
+        assert_eq!(script.name, "Test Absolute Path");
+        assert!(!script.embedded);
+    }
+
+    #[test]
+    fn test_invalid_parent_directory_reference() {
+        let content_with_parent_after = r#"#!/bin/bash
+# @vercel.name Bad Script
+# @vercel.after ../parent_script.sh
+echo "This should fail"
+"#;
+
+        let path = Path::new("bad_script.sh");
+        let result = parser::ScriptParser::parse_script(content_with_parent_after, path, false);
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ScriptError::InvalidDependencyPath(msg) => {
+                assert!(msg.contains("../parent_script.sh"));
+                assert!(msg.contains("parent directory reference"));
+            }
+            _ => panic!("Expected InvalidDependencyPath error"),
+        }
+
+        let content_with_parent_requires = r#"#!/bin/bash
+# @vercel.name Bad Script With Requires
+# @vercel.requires ../parent_script.sh VAR1
+echo "This should also fail"
+"#;
+
+        let result2 = parser::ScriptParser::parse_script(content_with_parent_requires, path, false);
+
+        assert!(result2.is_err());
+        match result2.unwrap_err() {
+            ScriptError::InvalidDependencyPath(msg) => {
+                assert!(msg.contains("../parent_script.sh"));
+                assert!(msg.contains("parent directory reference"));
+            }
+            _ => panic!("Expected InvalidDependencyPath error"),
+        }
+    }
+
+    #[test]
+    fn test_dependency_path_normalization() {
+        // Test that "./script.sh" and "script.sh" are normalized to the same path
+        assert_eq!(
+            parser::ScriptParser::normalize_dependency_path("./script.sh"),
+            "script.sh"
+        );
+
+        assert_eq!(
+            parser::ScriptParser::normalize_dependency_path("script.sh"),
+            "script.sh"
+        );
+
+        // Test that other paths are unchanged
+        assert_eq!(
+            parser::ScriptParser::normalize_dependency_path("some/path/script.sh"),
+            "some/path/script.sh"
+        );
+    }
+
+    #[test]
+    fn test_relative_directory_path_resolution() {
+        use std::fs;
+        use tempfile::TempDir;
+
+        // Create a temporary directory with a script in the current working directory
+        let current_dir = std::env::current_dir().unwrap();
+        let temp_dir = TempDir::new_in(&current_dir).unwrap();
+        let script_path = temp_dir.path().join("test_relative.sh");
+
+        let script_content = r#"#!/bin/bash
+# @vercel.name Test Relative Path
+echo "testing relative path resolution"
+"#;
+        fs::write(&script_path, script_content).unwrap();
+
+        let manager = ScriptManager::new();
+
+        // Test with relative directory path
+        let relative_path = temp_dir.path().strip_prefix(&current_dir).unwrap();
+        let relative_dir = format!("./{}", relative_path.display());
+        let scripts = manager
+            .load_scripts_from_directory(&relative_dir, false)
+            .unwrap();
+
+        // Should find our test script
+        assert_eq!(
+            scripts.len(),
+            1,
+            "Should find exactly one script from relative path"
+        );
+        let script = &scripts[0];
+
+        // Verify the absolute_pathname is actually absolute (even when loaded from relative dir)
+        assert!(
+            script.absolute_pathname.is_absolute(),
+            "Script absolute_pathname should be absolute even when loaded from relative directory"
+        );
+
+        // Verify it's the canonical (resolved) path
+        let expected_absolute = script_path.canonicalize().unwrap();
+        assert_eq!(
+            script.absolute_pathname, expected_absolute,
+            "Script absolute_pathname should match canonicalized path"
+        );
+
+        // Verify the script name and other metadata were parsed correctly
+        assert_eq!(script.name, "Test Relative Path");
+        assert!(!script.embedded);
     }
 }

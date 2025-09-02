@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 
 # @vercel.name Link Local Next.js
 # @vercel.description Install the local Next.js package as the project's dependency

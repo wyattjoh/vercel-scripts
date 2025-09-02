@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 
 # @vercel.name Start Local Project (next start)
 # @vercel.description Start the project for local testing (not deployment).

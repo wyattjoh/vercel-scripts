@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 
 # @vercel.name Package Next.js
 # @vercel.description Package the Next.js project

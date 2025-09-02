@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 
 # @vercel.name Deploy Project (vc deploy --prebuilt)
 # @vercel.description Deploy the project using the prebuilt build.
@@ -11,7 +11,9 @@ set -e
 alias vercel="node ${VERCEL_VERCEL_DIRECTORY}/packages/cli/dist/index.js"
 
 if [ "$VERCEL_BUILD_PRODUCTION" = "true" ]; then
-  vercel --prebuilt --force --prod
+  echo "Deploying project in production mode..."
+  export VERCEL_DEPLOYMENT_ORIGIN=$(vercel --prebuilt --force --prod)
 else
-  vercel --prebuilt --force
+  echo "Deploying project in preview mode..."
+  export VERCEL_DEPLOYMENT_ORIGIN=$(vercel --prebuilt --force)
 fi

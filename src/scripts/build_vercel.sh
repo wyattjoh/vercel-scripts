@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 
 # @vercel.name Build Vercel CLI
 # @vercel.description Build the vercel CLI

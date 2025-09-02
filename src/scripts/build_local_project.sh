@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 
 # @vercel.name Build Project for Local (next build)
 # @vercel.description Build the project for local testing (not deployment).

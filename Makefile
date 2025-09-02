@@ -16,7 +16,7 @@ build-release:
 	cargo build --release
 
 # Install the binary globally
-install: build-release
+install:
 	cargo install --path .
 
 # Run test suite

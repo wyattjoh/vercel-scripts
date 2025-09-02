@@ -1,10 +1,18 @@
+use colored::Colorize;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::path::PathBuf; // RUST LEARNING: PathBuf is like a mutable path (vs Path which is immutable)
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScriptArg {
     pub name: String,
     pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScriptRequirement {
+    pub script: String,
+    pub variables: Vec<String>,
 }
 
 // RUST LEARNING: Advanced enum with data - much more powerful than TypeScript enums
@@ -89,10 +97,24 @@ pub struct Script {
     pub name: String,
     pub description: Option<String>,
     pub after: Option<Vec<String>>,
+    pub requires: Option<Vec<ScriptRequirement>>,
     pub absolute_pathname: PathBuf,
     pub pathname: String,
     pub embedded: bool,
     pub args: Option<Vec<ScriptArg>>,
     pub opts: Option<Vec<ScriptOpt>>,
     pub stdin: Option<String>,
+}
+
+impl fmt::Display for Script {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} {}{}{}",
+            self.name,
+            "(".bright_black(),
+            self.pathname.bright_black(),
+            ")".bright_black()
+        )
+    }
 }

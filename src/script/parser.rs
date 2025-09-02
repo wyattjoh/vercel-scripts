@@ -1,5 +1,5 @@
 use crate::script::{
-    types::{Script, ScriptArg, ScriptOpt},
+    types::{Script, ScriptArg, ScriptOpt, ScriptRequirement},
     Result, ScriptError,
 };
 use log::debug;
@@ -9,6 +9,14 @@ use std::path::Path;
 pub(crate) struct ScriptParser;
 
 impl ScriptParser {
+    /// Normalize a dependency path by removing leading "./" prefix
+    pub fn normalize_dependency_path(dep: &str) -> String {
+        if let Some(stripped) = dep.strip_prefix("./") {
+            stripped.to_string()
+        } else {
+            dep.to_string()
+        }
+    }
     pub fn parse_script(content: &str, path: &Path, embedded: bool) -> Result<Script> {
         debug!("Parsing script: {}", path.display());
 
@@ -22,27 +30,47 @@ impl ScriptParser {
         };
 
         let description = Self::get_attribute(content, "description");
-        let after = Self::get_attribute(content, "after")
+        let after: Option<Vec<String>> = Self::get_attribute(content, "after")
             .map(|s| s.split_whitespace().map(|s| s.to_string()).collect());
+
+        // Validate 'after' dependencies
+        if let Some(ref deps) = after {
+            for dep in deps {
+                if dep.starts_with("../") {
+                    return Err(ScriptError::InvalidDependencyPath(format!(
+                        "Dependency '{}' uses parent directory reference which is not allowed",
+                        dep
+                    )));
+                }
+            }
+        }
+
+        let requires = Self::get_requires(content)?;
         let args = Self::get_args(content)?;
         let opts = Self::get_opts(content)?;
         let stdin = Self::get_stdin(content);
 
         debug!(
-            "Script metadata - name: {}, args: {}, opts: {}",
+            "Script metadata - name: {}, args: {}, opts: {}, requires: {}",
             name,
             args.as_ref().map_or(0, |a| a.len()),
-            opts.as_ref().map_or(0, |o| o.len())
+            opts.as_ref().map_or(0, |o| o.len()),
+            requires.as_ref().map_or(0, |r| r.len())
         );
 
         if let Some(ref deps) = after {
             debug!("Script dependencies: {:?}", deps);
         }
 
+        if let Some(ref reqs) = requires {
+            debug!("Script requirements: {:?}", reqs);
+        }
+
         Ok(Script {
             name,
             description,
             after,
+            requires,
             absolute_pathname: path.to_path_buf(),
             pathname: path
                 .file_name()
@@ -110,6 +138,41 @@ impl ScriptParser {
             Some("inherit".to_string())
         } else {
             None
+        }
+    }
+
+    fn get_requires(content: &str) -> Result<Option<Vec<ScriptRequirement>>> {
+        let re = Regex::new(r"(?m)@vercel\.requires\s+(?P<tokens>.+)$").expect("Invalid regex");
+
+        let mut requirements = Vec::new();
+        for caps in re.captures_iter(content) {
+            if let Some(tokens_match) = caps.name("tokens") {
+                let tokens: Vec<&str> = tokens_match.as_str().split_whitespace().collect();
+
+                if tokens.is_empty() {
+                    continue; // Skip empty requires lines
+                }
+
+                let script = tokens[0].to_string();
+
+                // Validate that script dependency doesn't use parent directory reference
+                if script.starts_with("../") {
+                    return Err(ScriptError::InvalidDependencyPath(format!(
+                        "Dependency '{}' uses parent directory reference which is not allowed",
+                        script
+                    )));
+                }
+
+                let variables = tokens[1..].iter().map(|&s| s.to_string()).collect();
+
+                requirements.push(ScriptRequirement { script, variables });
+            }
+        }
+
+        if requirements.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(requirements))
         }
     }
 }

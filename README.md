@@ -46,7 +46,7 @@ The tool creates configuration files to persist your settings:
 Create a bash script in the `src/scripts/` directory with metadata annotations:
 
 ```bash
-#!/bin/bash
+#!/usr/bin/env zsh
 
 # @vercel.name Your Script Name
 # @vercel.description What this script does

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 
 # @vercel.name Build Project for Deploy (vc build)
 # @vercel.description Build the project for deployment.

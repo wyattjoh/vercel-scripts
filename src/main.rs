@@ -96,7 +96,7 @@ fn main() -> anyhow::Result<()> {
             Ok(())
         }
         // RUST LEARNING: `None` handles the case where command is undefined/null
-        None => match run_scripts(cli.replay, &config) {
+        None => match run_scripts(cli.replay, cli.debug, &config) {
             Ok(()) => Ok(()),
             Err(VssError::UserInterrupted) => {
                 // User pressed CTRL-C - exit gracefully without error message

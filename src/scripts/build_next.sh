@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/usr/bin/env zsh
 
 # @vercel.name Build Next.js
 # @vercel.description Build the Next.js project

@@ -103,7 +103,11 @@ impl ScriptManager {
         Ok(scripts)
     }
 
-    fn load_scripts_from_directory(&self, dir: &str, embedded: bool) -> Result<Vec<Script>> {
+    pub(crate) fn load_scripts_from_directory(
+        &self,
+        dir: &str,
+        embedded: bool,
+    ) -> Result<Vec<Script>> {
         let mut scripts = Vec::new();
         let dir_path = Path::new(dir);
 
@@ -128,7 +132,9 @@ impl ScriptManager {
             })
             .map(|path| {
                 let content = fs::read_to_string(&path)?;
-                ScriptParser::parse_script(&content, &path, embedded)
+                // Canonicalize the path to ensure we have an absolute path
+                let absolute_path = path.canonicalize()?;
+                ScriptParser::parse_script(&content, &absolute_path, embedded)
             })
             .collect();
 
@@ -143,16 +149,21 @@ impl ScriptManager {
         let mut script_indices = HashMap::new();
         let mut path_to_script = HashMap::new();
 
-        // Add all scripts as nodes
+        // Add all scripts as nodes and create consistent path mappings
         for (i, script) in scripts.iter().enumerate() {
             let node_idx = graph.add_node(i);
             script_indices.insert(i, node_idx);
-            path_to_script.insert(script.absolute_pathname.clone(), i);
 
-            // Also add by filename for embedded scripts
+            // Use consistent path mapping for both embedded and external scripts
             if script.embedded {
-                path_to_script.insert(std::path::PathBuf::from(&script.pathname), i);
+                // For embedded scripts, use just the filename as the key
+                if let Some(filename) = script.absolute_pathname.file_name() {
+                    path_to_script.insert(PathBuf::from(filename), i);
+                }
             }
+
+            // Always also store the absolute pathname for lookups
+            path_to_script.insert(script.absolute_pathname.clone(), i);
         }
 
         // Add dependencies as edges
@@ -163,38 +174,8 @@ impl ScriptManager {
                         "Processing dependency '{}' for script '{}'",
                         dep, script.name
                     );
-                    let dep_script_index = if dep.starts_with("./") || dep.starts_with("../") {
-                        if script.embedded {
-                            // For embedded scripts, relative paths are just filename references
-                            let filename = dep.strip_prefix("./").unwrap_or(dep);
-                            let dep_path = std::path::PathBuf::from(filename);
-                            debug!(
-                                "Resolving relative embedded dependency: {} -> {:?}",
-                                dep, dep_path
-                            );
-                            path_to_script.get(&dep_path)
-                        } else {
-                            // Relative path - resolve relative to script location
-                            let script_dir =
-                                script.absolute_pathname.parent().ok_or_else(|| {
-                                    ScriptError::DependencyNotFound(format!(
-                                        "Cannot resolve parent of {}",
-                                        script.absolute_pathname.display()
-                                    ))
-                                })?;
-                            let dep_path = script_dir.join(dep);
-                            debug!(
-                                "Resolving relative dependency: {} from {} -> {:?}",
-                                dep,
-                                script_dir.display(),
-                                dep_path
-                            );
-                            path_to_script.get(&dep_path)
-                        }
-                    } else {
-                        // Filename lookup - search in embedded scripts first, then external dirs
-                        self.resolve_dependency_across_dirs(dep, external_dirs, &path_to_script)
-                    };
+                    let dep_script_index =
+                        self.resolve_dependency(dep, script, external_dirs, &path_to_script);
 
                     if let Some(&dep_idx) = dep_script_index {
                         if let (Some(&script_node), Some(&dep_node)) = (
@@ -221,6 +202,44 @@ impl ScriptManager {
                     }
                 }
             }
+
+            // Add required variable dependencies
+            if let Some(requirements) = &script.requires {
+                for requirement in requirements {
+                    debug!(
+                        "Processing requirement '{}' for variables {:?} for script '{}'",
+                        requirement.script, requirement.variables, script.name
+                    );
+
+                    let dep = &requirement.script;
+                    let dep_script_index =
+                        self.resolve_dependency(dep, script, external_dirs, &path_to_script);
+
+                    if let Some(&dep_idx) = dep_script_index {
+                        if let (Some(&script_node), Some(&dep_node)) = (
+                            script_indices.get(
+                                &scripts
+                                    .iter()
+                                    .position(|s| std::ptr::eq(s, script))
+                                    .unwrap(),
+                            ),
+                            script_indices.get(&dep_idx),
+                        ) {
+                            debug!(
+                                "Adding requirement edge: {} -> {} for variables {:?}",
+                                scripts[dep_idx].name, script.name, requirement.variables
+                            );
+                            graph.add_edge(dep_node, script_node, ());
+                        }
+                    } else {
+                        // Provide better error message showing which script had the missing requirement
+                        return Err(ScriptError::DependencyNotFound(format!(
+                            "Required script '{}' not found in any known script directory for script '{}'",
+                            dep, script.name
+                        )));
+                    }
+                }
+            }
         }
 
         // Perform topological sort
@@ -240,31 +259,61 @@ impl ScriptManager {
         Ok(sorted_scripts)
     }
 
-    /// Resolve a dependency by searching across directories like TypeScript version
-    fn resolve_dependency_across_dirs<'a>(
+    /// Resolve a dependency to its script index using normalized paths
+    fn resolve_dependency<'a>(
         &self,
         dep: &str,
+        script: &Script,
         external_dirs: &[String],
         path_to_script: &'a HashMap<std::path::PathBuf, usize>,
     ) -> Option<&'a usize> {
-        let dep_path = std::path::PathBuf::from(dep);
+        // First normalize the dependency path (remove leading "./" if present)
+        let normalized_dep = ScriptParser::normalize_dependency_path(dep);
+        debug!(
+            "Resolving dependency '{}' -> '{}' for script '{}'",
+            dep, normalized_dep, script.name
+        );
 
-        // First try direct filename lookup (for embedded scripts)
+        // 1. Try direct filename lookup first (finds embedded scripts by filename)
+        let dep_path = std::path::PathBuf::from(&normalized_dep);
         if let Some(script_idx) = path_to_script.get(&dep_path) {
-            debug!("Found dependency '{}' in embedded scripts", dep);
+            debug!(
+                "Found dependency '{}' via direct filename lookup",
+                normalized_dep
+            );
             return Some(script_idx);
         }
 
-        // Then try searching in each external directory
+        // 2. For non-embedded scripts, try resolving relative to script's directory
+        if !script.embedded {
+            if let Some(script_dir) = script.absolute_pathname.parent() {
+                let script_relative_path = script_dir.join(&normalized_dep);
+                if let Some(script_idx) = path_to_script.get(&script_relative_path) {
+                    debug!(
+                        "Found dependency '{}' relative to script directory",
+                        normalized_dep
+                    );
+                    return Some(script_idx);
+                }
+            }
+        }
+
+        // 3. Search in all external directories
         for dir in external_dirs {
-            let full_dep_path = std::path::Path::new(dir).join(dep);
+            let full_dep_path = std::path::Path::new(dir).join(&normalized_dep);
             if let Some(script_idx) = path_to_script.get(&full_dep_path) {
-                debug!("Found dependency '{}' in directory '{}'", dep, dir);
+                debug!(
+                    "Found dependency '{}' in external directory '{}'",
+                    normalized_dep, dir
+                );
                 return Some(script_idx);
             }
         }
 
-        debug!("Could not resolve dependency '{}' in any directory", dep);
+        debug!(
+            "Could not resolve dependency '{}' in any location",
+            normalized_dep
+        );
         None
     }
 
