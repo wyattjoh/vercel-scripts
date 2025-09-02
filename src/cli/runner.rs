@@ -1,5 +1,6 @@
 use crate::cli::prompts::{handle_boolean_option, handle_string_option, handle_worktree_option};
 use crate::config::Config;
+use crate::error::VssResult;
 use crate::script::{Script, ScriptManager, ScriptOpt};
 use colored::{Color, Colorize};
 use inquire::{MultiSelect, Text};
@@ -20,12 +21,14 @@ const AVAILABLE_COLORS: &[Color] = &[
     Color::Red,
 ];
 
-pub fn run_scripts(replay: bool, config: &Config) -> anyhow::Result<()> {
-    let current_config = config.global.get_config()?;
-    let app_config = config.app.get_config()?;
+pub fn run_scripts(replay: bool, config: &Config) -> VssResult<()> {
+    let current_config = config.global.get_config().map_err(anyhow::Error::from)?;
+    let app_config = config.app.get_config().map_err(anyhow::Error::from)?;
     let mut script_manager = ScriptManager::new();
 
-    let scripts = script_manager.get_scripts(&current_config.script_dirs)?;
+    let scripts = script_manager
+        .get_scripts(&current_config.script_dirs)
+        .map_err(anyhow::Error::from)?;
 
     if scripts.is_empty() {
         println!("{} No scripts found.", "Warning:".yellow());
@@ -84,9 +87,12 @@ pub fn run_scripts(replay: bool, config: &Config) -> anyhow::Result<()> {
             .collect();
 
         // Save selections
-        config.app.update_config(|cfg| {
-            cfg.selected = selected.iter().map(|s| s.pathname.clone()).collect();
-        })?;
+        config
+            .app
+            .update_config(|cfg| {
+                cfg.selected = selected.iter().map(|s| s.pathname.clone()).collect();
+            })
+            .map_err(anyhow::Error::from)?;
 
         selected
     };
@@ -107,15 +113,21 @@ pub fn run_scripts(replay: bool, config: &Config) -> anyhow::Result<()> {
 
     // Save updated args and opts
     if !global_args.is_empty() {
-        config.global.update_config(|cfg| {
-            cfg.args = global_args.clone();
-        })?;
+        config
+            .global
+            .update_config(|cfg| {
+                cfg.args = global_args.clone();
+            })
+            .map_err(anyhow::Error::from)?;
     }
 
     if !app_opts.is_empty() {
-        config.app.update_config(|cfg| {
-            cfg.opts = app_opts.clone();
-        })?;
+        config
+            .app
+            .update_config(|cfg| {
+                cfg.opts = app_opts.clone();
+            })
+            .map_err(anyhow::Error::from)?;
     }
 
     // Execute scripts
@@ -131,7 +143,7 @@ fn collect_script_inputs(
     scripts: &[Script],
     global_args: &mut HashMap<String, serde_json::Value>,
     app_opts: &mut HashMap<String, serde_json::Value>,
-) -> anyhow::Result<()> {
+) -> VssResult<()> {
     for script in scripts {
         debug!("Collecting arguments for script: {}", script.name);
         // Collect script arguments
@@ -212,7 +224,7 @@ fn execute_scripts(
     global_args: &HashMap<String, serde_json::Value>,
     app_opts: &HashMap<String, serde_json::Value>,
     script_manager: &mut ScriptManager,
-) -> anyhow::Result<()> {
+) -> VssResult<()> {
     // RUST LEARNING: `enumerate()` gives (index, item) tuples (like Array.entries() in JS)
     for (index, script) in scripts.iter().enumerate() {
         // RUST LEARNING: Modulo operator for cycling through colors (like TypeScript version)
@@ -272,8 +284,12 @@ fn execute_scripts(
         debug!("Script env vars: {:?}", env_vars);
 
         // Prepare runtime and script
-        let runtime_path = script_manager.prepare_runtime()?;
-        let script_path = script_manager.prepare_script(script, "script")?;
+        let runtime_path = script_manager
+            .prepare_runtime()
+            .map_err(anyhow::Error::from)?;
+        let script_path = script_manager
+            .prepare_script(script, "script")
+            .map_err(anyhow::Error::from)?;
 
         // Execute script
         // RUST LEARNING: Option method chaining with `as_deref()`
@@ -312,7 +328,8 @@ fn execute_scripts(
                 "SHELL",
                 env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string()),
             ) // Ensure shell is set
-            .spawn()?;
+            .spawn()
+            .map_err(anyhow::Error::from)?;
 
         // Handle output if not inheriting stdin
         if script.stdin.as_deref() != Some("inherit") {
@@ -359,7 +376,7 @@ fn execute_scripts(
             }
         }
 
-        let exit_status = cmd.wait()?;
+        let exit_status = cmd.wait().map_err(anyhow::Error::from)?;
         debug!(
             "Script {} completed with exit code: {:?}",
             script.name,

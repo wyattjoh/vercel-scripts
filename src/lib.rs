@@ -19,6 +19,7 @@
 pub mod cli;
 pub mod commands;
 pub mod config;
+pub mod error;
 pub mod script;
 pub mod worktree;
 
@@ -27,6 +28,7 @@ pub mod worktree;
 // - Users can do `use vss::Config` instead of `use vss::config::Config`
 // - Like creating a public API surface
 pub use config::Config;
+pub use error::{VssError, VssResult};
 pub use script::{Script, ScriptManager, ScriptOpt};
 // Export ScriptArg for users who need access to script arguments
 pub use cli::runner::run_scripts;

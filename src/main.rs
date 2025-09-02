@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
 use std::env;
 use vss::{
     run_scripts, AddScriptDirCommand, CompletionsCommand, Config, ListScriptDirsCommand,
-    ListScriptsCommand, RemoveScriptDirCommand, VERSION,
+    ListScriptsCommand, RemoveScriptDirCommand, VssError, VERSION,
 };
 
 // RUST LEARNING: `#[derive]` is a macro that auto-generates code
@@ -76,14 +76,19 @@ fn main() -> anyhow::Result<()> {
     // - No try/catch needed - handled by the type system
     let config = Config::new()?;
 
-    // RUST LEARNING: `match` is like a switch statement but much more powerful
-    // - Must handle ALL possible variants (compile-time exhaustiveness checking)
-    // - Can destructure data from enum variants
+    // Handle VssError to distinguish between user interruptions and actual errors
     match cli.command {
         // RUST LEARNING: `Some(Commands::AddScriptDir(cmd))` pattern matches and extracts the cmd
         // - Like `if (cli.command?.type === 'add') { const cmd = cli.command.data; }`
         Some(Commands::AddScriptDir(cmd)) => cmd.execute(&config),
-        Some(Commands::RemoveScriptDir(cmd)) => cmd.execute(&config),
+        Some(Commands::RemoveScriptDir(cmd)) => match cmd.execute(&config) {
+            Ok(()) => Ok(()),
+            Err(VssError::UserInterrupted) => {
+                // User pressed CTRL-C - exit gracefully without error message
+                std::process::exit(0);
+            }
+            Err(VssError::Other(err)) => Err(err),
+        },
         Some(Commands::ListScriptDirs(cmd)) => cmd.execute(&config),
         Some(Commands::ListScripts(cmd)) => cmd.execute(&config),
         Some(Commands::Completions(cmd)) => {
@@ -91,6 +96,13 @@ fn main() -> anyhow::Result<()> {
             Ok(())
         }
         // RUST LEARNING: `None` handles the case where command is undefined/null
-        None => run_scripts(cli.replay, &config),
+        None => match run_scripts(cli.replay, &config) {
+            Ok(()) => Ok(()),
+            Err(VssError::UserInterrupted) => {
+                // User pressed CTRL-C - exit gracefully without error message
+                std::process::exit(0);
+            }
+            Err(VssError::Other(err)) => Err(err),
+        },
     }
 }

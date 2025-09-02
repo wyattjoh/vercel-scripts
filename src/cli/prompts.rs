@@ -1,3 +1,4 @@
+use crate::error::VssResult;
 use crate::script::ScriptOpt;
 use crate::worktree::WorktreeManager;
 use colored::Colorize;
@@ -6,10 +7,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 /// Handle a boolean script option by prompting the user
-pub(crate) fn handle_boolean_option(
-    opt: &ScriptOpt,
-    default: &Option<bool>,
-) -> anyhow::Result<bool> {
+pub(crate) fn handle_boolean_option(opt: &ScriptOpt, default: &Option<bool>) -> VssResult<bool> {
     let value = Confirm::new(opt.description())
         .with_default(default.unwrap_or(false))
         .prompt()?;
@@ -22,7 +20,7 @@ pub(crate) fn handle_string_option(
     default: &Option<String>,
     pattern: &Option<String>,
     pattern_help: &Option<String>,
-) -> anyhow::Result<Option<String>> {
+) -> VssResult<Option<String>> {
     let value = loop {
         let mut input = Text::new(opt.description());
 
@@ -34,7 +32,7 @@ pub(crate) fn handle_string_option(
 
         // Handle validation like TypeScript version
         if let Some(pattern) = pattern {
-            let re = regex::Regex::new(pattern)?;
+            let re = regex::Regex::new(pattern).map_err(anyhow::Error::from)?;
 
             // If empty and optional, skip validation
             if input_value.is_empty() && opt.is_optional() {
@@ -82,7 +80,7 @@ pub(crate) fn handle_worktree_option(
     base_dir_arg: &str,
     default: &Option<String>,
     global_args: &HashMap<String, serde_json::Value>,
-) -> anyhow::Result<Option<String>> {
+) -> VssResult<Option<String>> {
     if let Some(base_dir_value) = global_args.get(base_dir_arg) {
         if let serde_json::Value::String(base_dir) = base_dir_value {
             let worktrees = WorktreeManager::list_worktrees(base_dir).unwrap_or_default();

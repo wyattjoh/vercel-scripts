@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::error::VssResult;
 use clap::Args;
 use colored::Colorize;
 use inquire::{Confirm, Select};
@@ -15,8 +16,8 @@ pub struct RemoveScriptDirCommand {
 }
 
 impl RemoveScriptDirCommand {
-    pub fn execute(&self, config: &Config) -> anyhow::Result<()> {
-        let current_config = config.global.get_config()?;
+    pub fn execute(&self, config: &Config) -> VssResult<()> {
+        let current_config = config.global.get_config().map_err(anyhow::Error::from)?;
 
         if current_config.script_dirs.is_empty() {
             println!("{} No script directories configured", "Info:".blue());
@@ -29,7 +30,11 @@ impl RemoveScriptDirCommand {
             let absolute_path = if path.is_absolute() {
                 path.to_path_buf()
             } else {
-                std::env::current_dir()?.join(path).canonicalize()?
+                std::env::current_dir()
+                    .map_err(anyhow::Error::from)?
+                    .join(path)
+                    .canonicalize()
+                    .map_err(anyhow::Error::from)?
             };
             let path_str = absolute_path.to_string_lossy().to_string();
 
@@ -76,9 +81,12 @@ impl RemoveScriptDirCommand {
         }
 
         // Remove from config
-        config.global.update_config(|cfg| {
-            cfg.script_dirs.retain(|dir| dir != &dir_to_remove);
-        })?;
+        config
+            .global
+            .update_config(|cfg| {
+                cfg.script_dirs.retain(|dir| dir != &dir_to_remove);
+            })
+            .map_err(anyhow::Error::from)?;
 
         println!(
             "{} Removed script directory: {}",
