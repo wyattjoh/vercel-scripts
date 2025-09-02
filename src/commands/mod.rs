@@ -2,10 +2,12 @@ pub mod add_script_dir;
 pub mod completions;
 pub mod list_script_dirs;
 pub mod list_scripts;
+pub mod new_script;
 pub mod remove_script_dir;
 
 pub use add_script_dir::AddScriptDirCommand;
 pub use completions::CompletionsCommand;
 pub use list_script_dirs::ListScriptDirsCommand;
 pub use list_scripts::ListScriptsCommand;
+pub use new_script::NewScriptCommand;
 pub use remove_script_dir::RemoveScriptDirCommand;

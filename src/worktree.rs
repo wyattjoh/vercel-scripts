@@ -1,5 +1,5 @@
-use colored::Colorize;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::path::{Path, PathBuf};
 use std::process::Command; // RUST LEARNING: For spawning child processes (like Node's child_process)
 use thiserror::Error;
@@ -28,47 +28,9 @@ pub struct Worktree {
     pub head: String, // Git commit hash
 }
 
-impl Worktree {
-    /// Get the relative path from the base directory
-    pub fn relative_path(&self, base_dir: &Path) -> PathBuf {
-        // RUST LEARNING: `unwrap_or()` provides fallback for failed operations
-        // - If strip_prefix fails, use the original path
-        // - Like: result.ok() || fallback in JavaScript
-        self.path
-            .strip_prefix(base_dir)
-            .unwrap_or(&self.path)
-            .to_path_buf()
-    }
-
-    /// Get a display string for this worktree
-    pub fn display_name(&self, base_dir: &Path) -> String {
-        let relative = self.relative_path(base_dir);
-        if relative.as_os_str().is_empty() {
-            format!(
-                "{} {}{}{}",
-                self.branch,
-                "(".bright_black(),
-                base_dir.display().to_string().bright_black(),
-                ")".bright_black()
-            )
-        } else {
-            format!(
-                "{} {}{}{}",
-                self.branch,
-                "(".bright_black(),
-                relative.display().to_string().bright_black(),
-                ")".bright_black()
-            )
-        }
-    }
-
-    /// Check if this is the main worktree (path equals base directory)
-    // RUST LEARNING: `#[cfg(test)]` only compiles this code during testing
-    // - Keeps test-only code out of production builds
-    // - Like conditional compilation for tests
-    #[cfg(test)]
-    pub fn is_main(&self, base_dir: &Path) -> bool {
-        self.path == base_dir
+impl fmt::Display for Worktree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.branch)
     }
 }
 
@@ -233,54 +195,5 @@ detached
             worktrees[2].head,
             "fedcba0987654321fedcba0987654321fedcba09"
         );
-    }
-
-    #[test]
-    fn test_worktree_display_name() {
-        // Test feature worktree
-        let worktree = Worktree {
-            path: PathBuf::from("/home/user/project/worktrees/feature"),
-            branch: "feature-branch".to_string(),
-            head: "abc123".to_string(),
-        };
-
-        let base_dir = PathBuf::from("/home/user/project");
-        let display_name = worktree.display_name(&base_dir);
-
-        // The output contains ANSI color codes, so we check that it contains the expected text
-        assert!(display_name.contains("feature-branch"));
-        assert!(display_name.contains("worktrees/feature"));
-
-        // Test base directory worktree
-        let base_worktree = Worktree {
-            path: PathBuf::from("/home/user/project"),
-            branch: "main".to_string(),
-            head: "def456".to_string(),
-        };
-
-        let base_display_name = base_worktree.display_name(&base_dir);
-        // The output contains ANSI color codes, so we check that it contains the expected text
-        assert!(base_display_name.contains("main"));
-        assert!(base_display_name.contains("/home/user/project"));
-    }
-
-    #[test]
-    fn test_worktree_is_main() {
-        let main_worktree = Worktree {
-            path: PathBuf::from("/home/user/project"),
-            branch: "main".to_string(),
-            head: "abc123".to_string(),
-        };
-
-        let feature_worktree = Worktree {
-            path: PathBuf::from("/home/user/project/worktrees/feature"),
-            branch: "feature".to_string(),
-            head: "def456".to_string(),
-        };
-
-        let base_dir = PathBuf::from("/home/user/project");
-
-        assert!(main_worktree.is_main(&base_dir));
-        assert!(!feature_worktree.is_main(&base_dir));
     }
 }

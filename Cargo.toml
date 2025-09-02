@@ -3,7 +3,7 @@
 # - Much more explicit than package.json's flexible structure
 [package]
 name = "vss"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2021"
 authors = ["Wyatt Johnson"]
 description = "Vercel Scripts Selector - Interactive script runner for Vercel development workflows"
@@ -41,6 +41,7 @@ anyhow = "1.0"
 dirs = "6.0"
 log = "0.4"
 env_logger = "0.11"
+strum = { version = "0.27", features = ["derive"] }
 
 # RUST LEARNING: [dev-dependencies] are only used during development/testing
 # - Like devDependencies in package.json

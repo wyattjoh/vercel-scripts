@@ -3,7 +3,7 @@
 # @vercel.name Build Next.js
 # @vercel.description Build the Next.js project
 # @vercel.arg VERCEL_NEXT_DIRECTORY The directory for the vercel/next.js repo
-# @vercel.opt { "name": "VERCEL_NEXT_WORKTREE", "description": "Select Next.js worktree to build", "type": "worktree", "baseDirArg": "VERCEL_NEXT_DIRECTORY", "default": null, "optional": true }
+# @vercel.opt { "name": "VERCEL_NEXT_WORKTREE", "description": "Select Next.js worktree to build", "type": "worktree", "baseDirArg": "VERCEL_NEXT_DIRECTORY", "optional": true }
 
 set -e
 

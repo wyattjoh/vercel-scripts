@@ -2,6 +2,7 @@ use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::PathBuf; // RUST LEARNING: PathBuf is like a mutable path (vs Path which is immutable)
+use strum::{Display, EnumIter, IntoEnumIterator};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScriptArg {
@@ -13,6 +14,28 @@ pub struct ScriptArg {
 pub struct ScriptRequirement {
     pub script: String,
     pub variables: Vec<String>,
+}
+
+// RUST LEARNING: Simple enum for representing ScriptOpt types without data
+// - Uses strum to automatically generate Display and iteration capabilities
+// - EnumIter provides automatic iteration over all variants
+// - Display provides string representation matching ScriptOpt serde names
+#[derive(Debug, Clone, Copy, Display, EnumIter)]
+pub enum ScriptOptType {
+    #[strum(serialize = "boolean")]
+    Boolean,
+    #[strum(serialize = "string")]
+    String,
+    #[strum(serialize = "worktree")]
+    Worktree,
+}
+
+impl ScriptOptType {
+    /// Returns all available option types automatically
+    /// This method will always be complete due to EnumIter
+    pub fn all() -> Vec<Self> {
+        Self::iter().collect()
+    }
 }
 
 // RUST LEARNING: Advanced enum with data - much more powerful than TypeScript enums
@@ -50,7 +73,6 @@ pub enum ScriptOpt {
         // - Handles both "base_dir_arg" and "baseDirArg" in JSON
         #[serde(alias = "baseDirArg")]
         base_dir_arg: String,
-        default: Option<String>,
         #[serde(default)]
         optional: bool,
     },
@@ -88,6 +110,19 @@ impl ScriptOpt {
             ScriptOpt::Boolean { optional, .. } => *optional,
             ScriptOpt::String { optional, .. } => *optional,
             ScriptOpt::Worktree { optional, .. } => *optional,
+        }
+    }
+}
+
+// RUST LEARNING: From trait provides compile-time verification of enum sync
+// - If new ScriptOpt variant is added, this won't compile until updated
+// - Ensures ScriptOptType always covers all ScriptOpt variants
+impl From<&ScriptOpt> for ScriptOptType {
+    fn from(opt: &ScriptOpt) -> Self {
+        match opt {
+            ScriptOpt::Boolean { .. } => ScriptOptType::Boolean,
+            ScriptOpt::String { .. } => ScriptOptType::String,
+            ScriptOpt::Worktree { .. } => ScriptOptType::Worktree,
         }
     }
 }

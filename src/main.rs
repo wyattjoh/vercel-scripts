@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
 use std::env;
 use vss::{
     run_scripts, AddScriptDirCommand, CompletionsCommand, Config, ListScriptDirsCommand,
-    ListScriptsCommand, RemoveScriptDirCommand, VssError, VERSION,
+    ListScriptsCommand, NewScriptCommand, RemoveScriptDirCommand, VssError, VERSION,
 };
 
 // RUST LEARNING: `#[derive]` is a macro that auto-generates code
@@ -55,6 +55,9 @@ enum Commands {
     #[command(name = "list-scripts", alias = "ls")]
     ListScripts(ListScriptsCommand),
 
+    /// Create a new script with guided prompts
+    New(NewScriptCommand),
+
     /// Generate shell completions
     Completions(CompletionsCommand),
 }
@@ -76,21 +79,24 @@ fn main() -> anyhow::Result<()> {
     // - No try/catch needed - handled by the type system
     let config = Config::new()?;
 
-    // Handle VssError to distinguish between user interruptions and actual errors
     match cli.command {
-        // RUST LEARNING: `Some(Commands::AddScriptDir(cmd))` pattern matches and extracts the cmd
-        // - Like `if (cli.command?.type === 'add') { const cmd = cli.command.data; }`
         Some(Commands::AddScriptDir(cmd)) => cmd.execute(&config),
         Some(Commands::RemoveScriptDir(cmd)) => match cmd.execute(&config) {
             Ok(()) => Ok(()),
             Err(VssError::UserInterrupted) => {
-                // User pressed CTRL-C - exit gracefully without error message
                 std::process::exit(0);
             }
             Err(VssError::Other(err)) => Err(err),
         },
         Some(Commands::ListScriptDirs(cmd)) => cmd.execute(&config),
         Some(Commands::ListScripts(cmd)) => cmd.execute(&config),
+        Some(Commands::New(cmd)) => match cmd.execute(&config) {
+            Ok(()) => Ok(()),
+            Err(VssError::UserInterrupted) => {
+                std::process::exit(0);
+            }
+            Err(VssError::Other(err)) => Err(err),
+        },
         Some(Commands::Completions(cmd)) => {
             cmd.generate_completions::<Cli>();
             Ok(())
@@ -99,7 +105,6 @@ fn main() -> anyhow::Result<()> {
         None => match run_scripts(cli.replay, cli.debug, &config) {
             Ok(()) => Ok(()),
             Err(VssError::UserInterrupted) => {
-                // User pressed CTRL-C - exit gracefully without error message
                 std::process::exit(0);
             }
             Err(VssError::Other(err)) => Err(err),

@@ -38,7 +38,7 @@ pub use worktree::{Worktree, WorktreeManager};
 // Re-export command types for library users who want to use commands programmatically
 pub use commands::{
     AddScriptDirCommand, CompletionsCommand, ListScriptDirsCommand, ListScriptsCommand,
-    RemoveScriptDirCommand,
+    NewScriptCommand, RemoveScriptDirCommand,
 };
 
 // RUST LEARNING: `/// ` is a doc comment for the following item (like TSDoc)

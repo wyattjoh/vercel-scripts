@@ -389,7 +389,7 @@ fn collect_script_inputs(
             for arg in args {
                 if !global_args.contains_key(&arg.name) {
                     let value: String = Text::new(&format!(
-                        "Enter a directory path for {} - {}",
+                        "Enter a value for {} - {}",
                         arg.name.cyan(),
                         arg.description
                     ))
@@ -415,6 +415,8 @@ fn collect_script_inputs(
                         ScriptOpt::Boolean { default, .. } => {
                             let value = handle_boolean_option(opt, default)?;
                             app_opts.insert(opt.name().to_string(), serde_json::Value::Bool(value));
+                            global_args
+                                .insert(opt.name().to_string(), serde_json::Value::Bool(value));
                         }
                         ScriptOpt::String {
                             default,
@@ -427,19 +429,23 @@ fn collect_script_inputs(
                             {
                                 app_opts.insert(
                                     opt.name().to_string(),
+                                    serde_json::Value::String(value.clone()),
+                                );
+                                global_args.insert(
+                                    opt.name().to_string(),
                                     serde_json::Value::String(value),
                                 );
                             }
                         }
-                        ScriptOpt::Worktree {
-                            base_dir_arg,
-                            default,
-                            ..
-                        } => {
+                        ScriptOpt::Worktree { base_dir_arg, .. } => {
                             if let Some(value) =
-                                handle_worktree_option(opt, base_dir_arg, default, global_args)?
+                                handle_worktree_option(opt, base_dir_arg, global_args)?
                             {
                                 app_opts.insert(
+                                    opt.name().to_string(),
+                                    serde_json::Value::String(value.clone()),
+                                );
+                                global_args.insert(
                                     opt.name().to_string(),
                                     serde_json::Value::String(value),
                                 );
