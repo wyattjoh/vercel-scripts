@@ -2,6 +2,7 @@
 // - `serde` is like JSON.stringify/parse but for any data format
 // - `std::` is Rust's standard library (like Node.js built-ins)
 // - `thiserror::Error` is for defining custom error types
+use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -63,19 +64,25 @@ where
     }
 
     fn load(&self) -> Result<T> {
+        debug!("Loading config from: {}", self.file_path.display());
         if let Ok(contents) = fs::read_to_string(&self.file_path) {
-            Ok(serde_json::from_str(&contents)?)
+            let config = serde_json::from_str(&contents)?;
+            debug!("Config loaded successfully");
+            Ok(config)
         } else {
+            debug!("Config file not found, using default");
             Ok(T::default())
         }
     }
 
     fn save(&self, data: &T) -> Result<()> {
+        debug!("Updating config at: {}", self.file_path.display());
         if let Some(parent) = self.file_path.parent() {
             fs::create_dir_all(parent)?;
         }
         let contents = serde_json::to_string_pretty(data)?;
         fs::write(&self.file_path, contents)?;
+        debug!("Config saved successfully");
         Ok(())
     }
 

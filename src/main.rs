@@ -3,6 +3,7 @@
 // - `clap` is like a TypeScript CLI library (similar to commander.js)
 // - `vss` refers to our own crate (defined in lib.rs)
 use clap::{Parser, Subcommand};
+use std::env;
 use vss::{
     run_scripts, AddScriptDirCommand, CompletionsCommand, Config, ListScriptDirsCommand,
     ListScriptsCommand, RemoveScriptDirCommand, VERSION,
@@ -27,6 +28,10 @@ struct Cli {
     /// Replay the last run without prompts
     #[arg(short, long)]
     replay: bool,
+
+    /// Enable debug logging for script operations
+    #[arg(short = 'd', long, global = true)]
+    debug: bool,
 }
 
 // RUST LEARNING: `enum` in Rust is like TypeScript unions but much more powerful
@@ -59,6 +64,13 @@ enum Commands {
 // - `()` is Rust's unit type (like `void` in TypeScript)
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
+
+    // Initialize logging based on debug flag
+    if cli.debug {
+        env::set_var("RUST_LOG", "vss=debug");
+    }
+    env_logger::init();
+
     // RUST LEARNING: The `?` operator is like `await` for Results
     // - If Config::new() fails, it immediately returns the error
     // - No try/catch needed - handled by the type system

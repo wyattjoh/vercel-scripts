@@ -2,6 +2,7 @@ use crate::script::{
     types::{Script, ScriptArg, ScriptOpt},
     Result, ScriptError,
 };
+use log::debug;
 use regex::Regex;
 use std::path::Path;
 
@@ -9,6 +10,8 @@ pub(crate) struct ScriptParser;
 
 impl ScriptParser {
     pub fn parse_script(content: &str, path: &Path, embedded: bool) -> Result<Script> {
+        debug!("Parsing script: {}", path.display());
+
         let name = match Self::get_attribute(content, "name") {
             Some(name) => name,
             None => path
@@ -24,6 +27,17 @@ impl ScriptParser {
         let args = Self::get_args(content)?;
         let opts = Self::get_opts(content)?;
         let stdin = Self::get_stdin(content);
+
+        debug!(
+            "Script metadata - name: {}, args: {}, opts: {}",
+            name,
+            args.as_ref().map_or(0, |a| a.len()),
+            opts.as_ref().map_or(0, |o| o.len())
+        );
+
+        if let Some(ref deps) = after {
+            debug!("Script dependencies: {:?}", deps);
+        }
 
         Ok(Script {
             name,

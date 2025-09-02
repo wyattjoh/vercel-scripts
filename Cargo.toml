@@ -39,6 +39,8 @@ include_dir = "0.7"
 thiserror = "2.0"
 anyhow = "1.0"
 dirs = "6.0"
+log = "0.4"
+env_logger = "0.11"
 
 # RUST LEARNING: [dev-dependencies] are only used during development/testing
 # - Like devDependencies in package.json

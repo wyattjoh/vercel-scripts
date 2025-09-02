@@ -1,6 +1,7 @@
 // RUST LEARNING: `crate::` refers to the current crate's root (like absolute import from src/)
 use crate::script::{parser::ScriptParser, types::Script, Result, ScriptError};
 use include_dir::{include_dir, Dir};
+use log::debug;
 use petgraph::algo::toposort;
 use petgraph::graph::DiGraph;
 use std::collections::HashMap;
@@ -45,17 +46,24 @@ impl ScriptManager {
     }
 
     pub fn get_scripts(&mut self, external_dirs: &[String]) -> Result<Vec<Script>> {
+        debug!("Starting script discovery and loading");
         let mut all_scripts = Vec::new();
 
         // Load embedded scripts
+        debug!("Loading embedded scripts from binary");
         let embedded_scripts = self.load_embedded_scripts()?;
+        debug!("Found {} embedded scripts", embedded_scripts.len());
         all_scripts.extend(embedded_scripts);
 
         // Load external scripts
         for dir in external_dirs {
+            debug!("Loading scripts from directory: {}", dir);
             let external_scripts = self.load_scripts_from_directory(dir, false)?;
+            debug!("Found {} scripts in {}", external_scripts.len(), dir);
             all_scripts.extend(external_scripts);
         }
+
+        debug!("Total scripts discovered: {}", all_scripts.len());
 
         // Sort scripts by dependencies
         let sorted_scripts = self.sort_scripts(all_scripts, external_dirs)?;
@@ -130,6 +138,7 @@ impl ScriptManager {
     }
 
     fn sort_scripts(&self, scripts: Vec<Script>, _external_dirs: &[String]) -> Result<Vec<Script>> {
+        debug!("Building dependency graph for {} scripts", scripts.len());
         let mut graph = DiGraph::new();
         let mut script_indices = HashMap::new();
         let mut path_to_script = HashMap::new();
@@ -150,11 +159,19 @@ impl ScriptManager {
         for script in &scripts {
             if let Some(after_deps) = &script.after {
                 for dep in after_deps {
+                    debug!(
+                        "Processing dependency '{}' for script '{}'",
+                        dep, script.name
+                    );
                     let dep_script_index = if dep.starts_with("./") || dep.starts_with("../") {
                         if script.embedded {
                             // For embedded scripts, relative paths are just filename references
                             let filename = dep.strip_prefix("./").unwrap_or(dep);
                             let dep_path = std::path::PathBuf::from(filename);
+                            debug!(
+                                "Resolving relative embedded dependency: {} -> {:?}",
+                                dep, dep_path
+                            );
                             path_to_script.get(&dep_path)
                         } else {
                             // Relative path - resolve relative to script location
@@ -166,11 +183,18 @@ impl ScriptManager {
                                     ))
                                 })?;
                             let dep_path = script_dir.join(dep);
+                            debug!(
+                                "Resolving relative dependency: {} from {} -> {:?}",
+                                dep,
+                                script_dir.display(),
+                                dep_path
+                            );
                             path_to_script.get(&dep_path)
                         }
                     } else {
                         // Filename lookup in embedded scripts and external dirs
                         let dep_path = std::path::PathBuf::from(dep);
+                        debug!("Resolving filename dependency: {} -> {:?}", dep, dep_path);
                         path_to_script.get(&dep_path)
                     };
 
@@ -184,9 +208,14 @@ impl ScriptManager {
                             ),
                             script_indices.get(&dep_idx),
                         ) {
+                            debug!(
+                                "Adding dependency edge: {} -> {}",
+                                scripts[dep_idx].name, script.name
+                            );
                             graph.add_edge(dep_node, script_node, ());
                         }
                     } else {
+                        debug!("Dependency not found: {}", dep);
                         return Err(ScriptError::DependencyNotFound(dep.clone()));
                     }
                 }
@@ -194,6 +223,7 @@ impl ScriptManager {
         }
 
         // Perform topological sort
+        debug!("Performing topological sort");
         let sorted_indices = toposort(&graph, None).map_err(|_| ScriptError::CircularDependency)?;
 
         // Map sorted node indices back to scripts
@@ -203,14 +233,20 @@ impl ScriptManager {
             sorted_scripts.push(scripts[script_idx].clone());
         }
 
+        let script_names: Vec<&str> = sorted_scripts.iter().map(|s| s.name.as_str()).collect();
+        debug!("Final execution order: {:?}", script_names);
+
         Ok(sorted_scripts)
     }
 
     pub fn prepare_runtime(&mut self) -> Result<std::path::PathBuf> {
         let cache_dir = self.get_cache_dir()?;
+        debug!("Cache directory: {}", cache_dir.display());
         let runtime_path = cache_dir.join("runtime.sh");
 
+        debug!("Preparing runtime script at: {}", runtime_path.display());
         fs::write(&runtime_path, RUNTIME_SCRIPT)?;
+        debug!("Runtime script written ({} bytes)", RUNTIME_SCRIPT.len());
 
         // RUST LEARNING: Conditional compilation attributes
         // - `#[cfg(unix)]` only compiles this code on Unix-like systems
@@ -224,6 +260,7 @@ impl ScriptManager {
             // RUST LEARNING: `0o755` is octal notation (like 0755 in shell)
             perms.set_mode(0o755); // rwxr-xr-x permissions
             fs::set_permissions(&runtime_path, perms)?;
+            debug!("Setting executable permissions: 0o755");
         }
 
         Ok(runtime_path)
@@ -231,7 +268,25 @@ impl ScriptManager {
 
     pub fn prepare_script(&mut self, script: &Script, name: &str) -> Result<std::path::PathBuf> {
         let cache_dir = self.get_cache_dir()?;
-        let script_path = cache_dir.join(format!("{}.sh", name));
+        // Create a subdirectory with the prefix name
+        let script_dir = cache_dir.join(name);
+
+        // Ensure the subdirectory exists
+        fs::create_dir_all(&script_dir)?;
+
+        // Extract basename from the original script path
+        let basename = script
+            .absolute_pathname
+            .file_name()
+            .ok_or_else(|| ScriptError::InvalidPath(script.absolute_pathname.clone()))?;
+
+        let script_path = script_dir.join(basename);
+
+        debug!(
+            "Preparing script {} at: {}",
+            script.name,
+            script_path.display()
+        );
 
         let content = if script.embedded {
             EMBEDDED_SCRIPTS_DIR
@@ -247,15 +302,41 @@ impl ScriptManager {
             &fs::read_to_string(&script.absolute_pathname)?
         };
 
-        fs::write(&script_path, content)?;
+        // Check if file exists and has same content
+        let needs_write = if script_path.exists() {
+            match fs::read_to_string(&script_path) {
+                Ok(existing_content) => existing_content != content,
+                Err(_) => true, // If we can't read it, we need to write it
+            }
+        } else {
+            true // File doesn't exist, need to write
+        };
 
-        // Make executable
+        if needs_write {
+            fs::write(&script_path, content)?;
+            debug!("Script content written ({} bytes)", content.len());
+        } else {
+            debug!("Script content unchanged, skipping write");
+        }
+
+        // Check and update executable permissions only if needed
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mut perms = fs::metadata(&script_path)?.permissions();
-            perms.set_mode(0o755);
-            fs::set_permissions(&script_path, perms)?;
+            if let Ok(metadata) = fs::metadata(&script_path) {
+                let current_perms = metadata.permissions();
+                let current_mode = current_perms.mode();
+                let desired_mode = 0o755;
+
+                if current_mode & 0o777 != desired_mode {
+                    let mut perms = current_perms;
+                    perms.set_mode(desired_mode);
+                    fs::set_permissions(&script_path, perms)?;
+                    debug!("Updated permissions to 0o755");
+                } else {
+                    debug!("Permissions already correct (0o755)");
+                }
+            }
         }
 
         Ok(script_path)

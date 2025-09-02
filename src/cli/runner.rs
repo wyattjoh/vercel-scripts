@@ -3,6 +3,7 @@ use crate::config::Config;
 use crate::script::{Script, ScriptManager, ScriptOpt};
 use colored::Colorize; // RUST LEARNING: Trait to add color methods to strings
 use dialoguer::{theme::ColorfulTheme, Input, MultiSelect}; // RUST LEARNING: CLI interaction library
+use log::debug;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader}; // RUST LEARNING: Buffered I/O for reading process output
 use std::process::{Command, Stdio}; // RUST LEARNING: For process execution and I/O redirection
@@ -25,7 +26,9 @@ pub fn run_scripts(replay: bool, config: &Config) -> anyhow::Result<()> {
         return Ok(());
     }
 
+    debug!("Replay mode: {}", replay);
     let selected_scripts = if replay {
+        debug!("Using previously selected scripts from saved configuration");
         // Use previously selected scripts
         // RUST LEARNING: `into_iter()` consumes the Vec and gives ownership of each item
         // - Like for...of in JS but transfers ownership
@@ -35,6 +38,7 @@ pub fn run_scripts(replay: bool, config: &Config) -> anyhow::Result<()> {
             .filter(|script| app_config.selected.contains(&script.pathname))
             .collect()
     } else {
+        debug!("Starting interactive script selection");
         // Interactive script selection
         // RUST LEARNING: Type annotation `Vec<String>` is explicit but often optional
         // - Rust can usually infer types from usage
@@ -63,6 +67,9 @@ pub fn run_scripts(replay: bool, config: &Config) -> anyhow::Result<()> {
 
         selected
     };
+
+    let script_names: Vec<&str> = selected_scripts.iter().map(|s| s.name.as_str()).collect();
+    debug!("Selected scripts: {:?}", script_names);
 
     if selected_scripts.is_empty() {
         println!("No scripts selected.");
@@ -103,6 +110,7 @@ fn collect_script_inputs(
     app_opts: &mut HashMap<String, serde_json::Value>,
 ) -> anyhow::Result<()> {
     for script in scripts {
+        debug!("Collecting arguments for script: {}", script.name);
         // Collect script arguments
         if let Some(ref args) = script.args {
             for arg in args {
@@ -126,6 +134,7 @@ fn collect_script_inputs(
             }
         }
 
+        debug!("Collecting options for script: {}", script.name);
         // Collect script options
         if let Some(ref opts) = script.opts {
             for opt in opts {
@@ -192,6 +201,8 @@ fn execute_scripts(
         // RUST LEARNING: Modulo operator for cycling through colors
         let color = colors[index % colors.len()];
 
+        debug!("Executing script: {}", script.name);
+
         // RUST LEARNING: Method chaining - format!() creates String, .color() adds color
         println!("{}", format!("✨ Running {}...", script.name).color(color));
 
@@ -241,6 +252,8 @@ fn execute_scripts(
             }
         }
 
+        debug!("Script env vars: {:?}", env_vars);
+
         // Prepare runtime and script
         let runtime_path = script_manager.prepare_runtime()?;
         let script_path = script_manager.prepare_script(script, "script")?;
@@ -253,6 +266,20 @@ fn execute_scripts(
         } else {
             Stdio::piped() // Capture output for processing
         };
+
+        debug!(
+            "Script command: {} {}",
+            runtime_path.display(),
+            script_path.display()
+        );
+        debug!(
+            "Script stdio mode: {:?}",
+            if script.stdin.as_deref() == Some("inherit") {
+                "inherit"
+            } else {
+                "piped"
+            }
+        );
 
         // RUST LEARNING: Builder pattern for process configuration
         // - Each method returns Self, allowing method chaining
@@ -267,6 +294,7 @@ fn execute_scripts(
 
         // Handle output if not inheriting stdin
         if script.stdin.as_deref() != Some("inherit") {
+            debug!("Spawning output handler threads");
             // RUST LEARNING: `take()` moves the value out of the Option, leaving None
             // - Like extracting a value from an object and nullifying it
             if let Some(stdout) = cmd.stdout.take() {
@@ -310,6 +338,12 @@ fn execute_scripts(
         }
 
         let exit_status = cmd.wait()?;
+        debug!(
+            "Script {} completed with exit code: {:?}",
+            script.name,
+            exit_status.code()
+        );
+
         if !exit_status.success() {
             eprintln!(
                 "{} Script {} failed with exit code: {}",
