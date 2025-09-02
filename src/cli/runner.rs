@@ -2,7 +2,7 @@ use crate::cli::prompts::{handle_boolean_option, handle_string_option, handle_wo
 use crate::config::Config;
 use crate::script::{Script, ScriptManager, ScriptOpt};
 use colored::Colorize; // RUST LEARNING: Trait to add color methods to strings
-use dialoguer::{Input, MultiSelect}; // RUST LEARNING: CLI interaction library
+use dialoguer::{theme::ColorfulTheme, Input, MultiSelect}; // RUST LEARNING: CLI interaction library
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader}; // RUST LEARNING: Buffered I/O for reading process output
 use std::process::{Command, Stdio}; // RUST LEARNING: For process execution and I/O redirection
@@ -45,7 +45,7 @@ pub fn run_scripts(replay: bool, config: &Config) -> anyhow::Result<()> {
             .collect();
 
         // RUST LEARNING: Builder pattern with method chaining (like jQuery or axios)
-        let selections = MultiSelect::new()
+        let selections = MultiSelect::with_theme(&ColorfulTheme::default())
             .with_prompt("Which scripts do you want to run?")
             .items(&script_names)
             .defaults(&defaults)

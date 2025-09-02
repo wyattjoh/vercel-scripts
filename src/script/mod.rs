@@ -16,6 +16,8 @@ pub enum ScriptError {
     DependencyNotFound(String),
     #[error("Invalid script option: {0}")]
     InvalidScriptOption(String),
+    #[error("Invalid path - cannot extract filename: {0}")]
+    InvalidPath(std::path::PathBuf),
 }
 
 pub type Result<T> = std::result::Result<T, ScriptError>;
@@ -57,6 +59,26 @@ echo "Hello World"
         let opts = script.opts.unwrap();
         assert_eq!(opts.len(), 1);
         assert_eq!(opts[0].name(), "TEST_BOOL");
+    }
+
+    #[test]
+    fn test_script_parser_invalid_path() {
+        let content = r#"#!/bin/bash
+echo "Hello World"
+"#;
+
+        // Create a path that can't be converted to a valid filename
+        // Using an empty path should fail filename extraction
+        let path = Path::new("");
+        let result = ScriptParser::parse_script(content, path, false);
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ScriptError::InvalidPath(invalid_path) => {
+                assert_eq!(invalid_path, Path::new(""));
+            }
+            _ => panic!("Expected InvalidPath error"),
+        }
     }
 
     #[test]

@@ -1,28 +1,47 @@
 // RUST LEARNING: `crate::` refers to the current crate's root (like absolute import from src/)
 use crate::script::{parser::ScriptParser, types::Script, Result, ScriptError};
-use include_dir::{include_dir, Dir}; // RUST LEARNING: For embedding files at compile time
-use petgraph::algo::toposort; // Topological sorting algorithm
-use petgraph::graph::DiGraph; // RUST LEARNING: Directed graph for dependency resolution
+use include_dir::{include_dir, Dir};
+use petgraph::algo::toposort;
+use petgraph::graph::DiGraph;
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
-use tempfile::TempDir; // RUST LEARNING: For creating temporary directories
+use std::path::{Path, PathBuf};
 
 // RUST LEARNING: `static` variables are global constants (like const in TS but truly global)
 // - `include_dir!()` is a compile-time macro that embeds directory contents in the binary
 // - No need for file reading at runtime - everything is baked into the executable
 // - `$CARGO_MANIFEST_DIR` = directory containing Cargo.toml
 static EMBEDDED_SCRIPTS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/scripts");
+
 // RUST LEARNING: `include_str!()` embeds file content as a string literal at compile time
 static RUNTIME_SCRIPT: &str = include_str!("../runtime/runtime.sh");
 
 pub struct ScriptManager {
-    temp_dir: Option<TempDir>,
+    cache_dir: Option<PathBuf>,
 }
 
 impl ScriptManager {
     pub fn new() -> Self {
-        Self { temp_dir: None }
+        Self { cache_dir: None }
+    }
+
+    fn get_cache_dir(&mut self) -> Result<&PathBuf> {
+        if self.cache_dir.is_none() {
+            let cache_dir = dirs::cache_dir()
+                .or_else(|| dirs::home_dir().map(|h| h.join(".cache")))
+                .ok_or_else(|| {
+                    ScriptError::Io(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        "Could not find cache directory",
+                    ))
+                })?
+                .join("vercel-scripts");
+
+            fs::create_dir_all(&cache_dir)?;
+            self.cache_dir = Some(cache_dir);
+        }
+
+        Ok(self.cache_dir.as_ref().unwrap())
     }
 
     pub fn get_scripts(&mut self, external_dirs: &[String]) -> Result<Vec<Script>> {
@@ -188,12 +207,8 @@ impl ScriptManager {
     }
 
     pub fn prepare_runtime(&mut self) -> Result<std::path::PathBuf> {
-        if self.temp_dir.is_none() {
-            self.temp_dir = Some(TempDir::new()?);
-        }
-
-        let temp_dir = self.temp_dir.as_ref().unwrap();
-        let runtime_path = temp_dir.path().join("runtime.sh");
+        let cache_dir = self.get_cache_dir()?;
+        let runtime_path = cache_dir.join("runtime.sh");
 
         fs::write(&runtime_path, RUNTIME_SCRIPT)?;
 
@@ -215,12 +230,8 @@ impl ScriptManager {
     }
 
     pub fn prepare_script(&mut self, script: &Script, name: &str) -> Result<std::path::PathBuf> {
-        if self.temp_dir.is_none() {
-            self.temp_dir = Some(TempDir::new()?);
-        }
-
-        let temp_dir = self.temp_dir.as_ref().unwrap();
-        let script_path = temp_dir.path().join(format!("{}.sh", name));
+        let cache_dir = self.get_cache_dir()?;
+        let script_path = cache_dir.join(format!("{}.sh", name));
 
         let content = if script.embedded {
             EMBEDDED_SCRIPTS_DIR

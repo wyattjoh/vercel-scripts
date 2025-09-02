@@ -2,31 +2,22 @@
 # - [package] section defines metadata (like "name", "version" fields in package.json)
 # - Much more explicit than package.json's flexible structure
 [package]
-name = "vss" # Binary name (like "name" in package.json)
-version = "0.2.1" # Semantic versioning (like package.json)
-edition = "2021" # RUST LEARNING: Rust edition (language version)
+name = "vss"
+version = "0.2.2"
+edition = "2021"
 authors = ["Wyatt Johnson"]
 description = "Vercel Scripts Selector - Interactive script runner for Vercel development workflows"
-license = "MIT" # SPDX license identifier
+license = "MIT"
 repository = "https://github.com/wyattjoh/vercel-scripts"
-keywords = [
-  "cli",
-  "vercel",
-  "scripts",
-  "development",
-  "workflow",
-] # For crates.io search
-categories = [
-  "command-line-utilities",
-  "development-tools",
-] # Predefined categories
+keywords = ["cli", "vercel", "scripts", "development", "workflow"]
+categories = ["command-line-utilities", "development-tools"]
 
 # RUST LEARNING: [[bin]] defines binary targets (executables)
 # - Like "bin" field in package.json but more explicit
 # - Can have multiple binaries in one crate
 [[bin]]
-name = "vss"         # Output binary name
-path = "src/main.rs" # Entry point file
+name = "vss"
+path = "src/main.rs"
 
 # RUST LEARNING: [dependencies] section lists external crates (like npm dependencies)
 # - Version constraints use semver but with different syntax than npm
@@ -44,11 +35,16 @@ colored = "3.0"
 comfy-table = "7.0"
 regex = "1.0"
 petgraph = "0.8"
-tempfile = "3.0"
 include_dir = "0.7"
 thiserror = "2.0"
 anyhow = "1.0"
 dirs = "6.0"
+
+# RUST LEARNING: [dev-dependencies] are only used during development/testing
+# - Like devDependencies in package.json
+# - Not included in the final binary
+[dev-dependencies]
+tempfile = "3.0"
 
 # RUST LEARNING: [profile.release] configures release builds (like webpack production config)
 # - These optimizations create smaller, faster binaries

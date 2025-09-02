@@ -9,12 +9,14 @@ pub(crate) struct ScriptParser;
 
 impl ScriptParser {
     pub fn parse_script(content: &str, path: &Path, embedded: bool) -> Result<Script> {
-        let name = Self::get_attribute(content, "name").unwrap_or_else(|| {
-            path.file_name()
+        let name = match Self::get_attribute(content, "name") {
+            Some(name) => name,
+            None => path
+                .file_name()
                 .and_then(|n| n.to_str())
-                .unwrap_or("unknown")
-                .to_string()
-        });
+                .map(|s| s.to_string())
+                .ok_or_else(|| ScriptError::InvalidPath(path.to_path_buf()))?,
+        };
 
         let description = Self::get_attribute(content, "description");
         let after = Self::get_attribute(content, "after")
@@ -31,8 +33,8 @@ impl ScriptParser {
             pathname: path
                 .file_name()
                 .and_then(|n| n.to_str())
-                .unwrap_or("unknown")
-                .to_string(),
+                .map(|s| s.to_string())
+                .ok_or_else(|| ScriptError::InvalidPath(path.to_path_buf()))?,
             embedded,
             args,
             opts,
