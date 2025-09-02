@@ -87,10 +87,10 @@ pub(crate) fn handle_worktree_option(
             return Ok(None);
         }
 
-        return Err(VssError::Other(anyhow::anyhow!(
+        Err(VssError::Other(anyhow::anyhow!(
             "Base directory argument {} is required, but not set",
             base_dir_arg
-        )));
+        )))
     } else if opt.is_optional() {
         println!(
             "{} Base directory argument {} not set, skipping {}",
@@ -99,11 +99,11 @@ pub(crate) fn handle_worktree_option(
             opt.name()
         );
 
-        return Ok(None);
+        Ok(None)
     } else {
-        return Err(VssError::Other(anyhow::anyhow!(
+        Err(VssError::Other(anyhow::anyhow!(
             "Base directory argument {} is required, but not set",
             base_dir_arg
-        )));
+        )))
     }
 }
