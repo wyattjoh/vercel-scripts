@@ -3,7 +3,7 @@
 # - Much more explicit than package.json's flexible structure
 [package]
 name = "vss"
-version = "0.2.6"
+version = "0.2.7"
 edition = "2021"
 authors = ["Wyatt Johnson"]
 description = "Vercel Scripts Selector - Interactive script runner for Vercel development workflows"
@@ -42,12 +42,8 @@ dirs = "6.0"
 log = "0.4"
 env_logger = "0.11"
 strum = { version = "0.27", features = ["derive"] }
-
-# RUST LEARNING: [dev-dependencies] are only used during development/testing
-# - Like devDependencies in package.json
-# - Not included in the final binary
-[dev-dependencies]
 tempfile = "3.0"
+
 
 # RUST LEARNING: [profile.release] configures release builds (like webpack production config)
 # - These optimizations create smaller, faster binaries

@@ -10,6 +10,7 @@ use std::env;
 use std::io::{self, BufRead, BufReader, Write};
 use std::process::{Command, Stdio};
 use std::thread::{self, JoinHandle};
+use tempfile::NamedTempFile;
 
 /// Available colors for script output, matching TypeScript version
 const AVAILABLE_COLORS: &[Color] = &[
@@ -626,6 +627,14 @@ fn execute_scripts(
             .prepare_script(script, "script")
             .map_err(anyhow::Error::from)?;
 
+        // Create temporary files for export collection
+        let pre_env_file = NamedTempFile::new().map_err(anyhow::Error::from)?;
+        let post_env_file = NamedTempFile::new().map_err(anyhow::Error::from)?;
+        
+        // Add temp file paths to environment variables
+        env_vars.insert("VSS_PRE_ENV_FILE".to_string(), pre_env_file.path().to_string_lossy().to_string());
+        env_vars.insert("VSS_POST_ENV_FILE".to_string(), post_env_file.path().to_string_lossy().to_string());
+
         // Execute script
         // RUST LEARNING: Option method chaining with `as_deref()`
         // - Converts Option<String> to Option<&str> for comparison
@@ -653,11 +662,12 @@ fn execute_scripts(
         // - Each method returns Self, allowing method chaining
         // - `spawn()` starts the process and returns a Child handle
         // Ensure proper shell environment (like TypeScript version's shell: true)
+        let inherit_all = script.stdin.as_deref() == Some("inherit");
         let mut cmd = Command::new(&runtime_path)
             .arg(&script_path)
             .stdin(stdio)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stdout(if inherit_all { Stdio::inherit() } else { Stdio::piped() })
+            .stderr(if inherit_all { Stdio::inherit() } else { Stdio::piped() })
             .envs(&env_vars) // Set all environment variables at once
             .env(
                 "SHELL",
@@ -667,10 +677,9 @@ fn execute_scripts(
             .map_err(anyhow::Error::from)?;
 
         // Handle output streaming with export parsing
-        let mut exports = HashMap::new();
 
         // Use channels to collect exports from the streaming thread
-        let (export_tx, export_rx) = std::sync::mpsc::channel();
+        let (export_tx, _export_rx) = std::sync::mpsc::channel();
 
         // Store thread handles to ensure they complete
         let mut thread_handles: Vec<JoinHandle<()>> = Vec::new();
@@ -746,10 +755,8 @@ fn execute_scripts(
             let _ = handle.join(); // Ignore join errors, focus on output completion
         }
 
-        // Collect any exports from the streaming thread
-        if let Ok(thread_exports) = export_rx.recv() {
-            exports = thread_exports;
-        }
+        // Collect exports directly from temp files
+        let exports = read_exports_from_files(pre_env_file.path(), post_env_file.path());
 
         // Store exports for dependent scripts
         if !exports.is_empty() {
@@ -775,6 +782,58 @@ fn execute_scripts(
     }
 
     Ok(())
+}
+
+fn read_exports_from_files(pre_env_path: &std::path::Path, post_env_path: &std::path::Path) -> HashMap<String, String> {
+        use std::collections::HashSet;
+        use std::fs::File;
+        use std::io::{BufRead, BufReader};
+        
+        let mut exports = HashMap::new();
+        
+        // Read pre-execution exports if file exists
+        let pre_exports: HashSet<String> = if pre_env_path.exists() {
+            match File::open(pre_env_path) {
+                Ok(file) => BufReader::new(file)
+                    .lines()
+                    .map_while(Result::ok)
+                    .collect(),
+                Err(_) => HashSet::new(),
+            }
+        } else {
+            HashSet::new()
+        };
+
+        // Read post-execution exports and find new ones
+        if post_env_path.exists() {
+            if let Ok(file) = File::open(post_env_path) {
+                for line in BufReader::new(file).lines().map_while(Result::ok) {
+                    if !pre_exports.contains(&line) {
+                        // Parse the export line: "export VAR=value" or "declare -x VAR=value"
+                        if let Some(eq_pos) = line.find('=') {
+                            // Extract the variable assignment part (everything from the last space before '=' to the end)
+                            let before_eq = &line[..eq_pos];
+                            if let Some(var_start) = before_eq.rfind(' ') {
+                                let key = before_eq[var_start + 1..].trim().to_string();
+                                let value = line[eq_pos + 1..].trim();
+                                
+                                // Remove quotes if present
+                                let clean_value = if (value.starts_with('"') && value.ends_with('"') && value.len() > 1) 
+                                    || (value.starts_with('\'') && value.ends_with('\'') && value.len() > 1) {
+                                    value[1..value.len() - 1].to_string()
+                                } else {
+                                    value.to_string()
+                                };
+                                
+                                exports.insert(key, clean_value);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        exports
 }
 
 /// Parse exported variables from script output
@@ -1007,6 +1066,116 @@ Line 3"#;
         assert_eq!(regular_lines, vec!["Regular line 1", "Regular line 2"]);
 
         // Check that no exports are captured
+        assert_eq!(exports.len(), 0);
+    }
+    
+    #[test]
+    fn test_read_exports_from_files_basic() {
+        use tempfile::NamedTempFile;
+        use std::io::Write;
+        
+        // Create temp files with test data
+        let mut pre_file = NamedTempFile::new().unwrap();
+        let mut post_file = NamedTempFile::new().unwrap();
+        
+        // Pre-execution exports (existing variables)
+        writeln!(pre_file, "declare -x HOME=\"/home/user\"").unwrap();
+        writeln!(pre_file, "declare -x PATH=\"/usr/bin:/bin\"").unwrap();
+        
+        // Post-execution exports (existing + new variables)
+        writeln!(post_file, "declare -x HOME=\"/home/user\"").unwrap();
+        writeln!(post_file, "declare -x PATH=\"/usr/bin:/bin\"").unwrap();
+        writeln!(post_file, "declare -x PROJECT_ID=\"abc123\"").unwrap();
+        writeln!(post_file, "declare -x API_KEY=\"secret-key\"").unwrap();
+        
+        let exports = read_exports_from_files(pre_file.path(), post_file.path());
+        
+        assert_eq!(exports.len(), 2);
+        assert_eq!(exports.get("PROJECT_ID"), Some(&"abc123".to_string()));
+        assert_eq!(exports.get("API_KEY"), Some(&"secret-key".to_string()));
+    }
+    
+    #[test] 
+    fn test_read_exports_from_files_with_quotes() {
+        use tempfile::NamedTempFile;
+        use std::io::Write;
+        
+        let pre_file = NamedTempFile::new().unwrap();
+        let mut post_file = NamedTempFile::new().unwrap();
+        
+        // Only post-execution exports for simpler test
+        writeln!(post_file, "declare -x VAR_WITH_DOUBLE_QUOTES=\"value with spaces\"").unwrap();
+        writeln!(post_file, "declare -x VAR_WITH_SINGLE_QUOTES='single quoted'").unwrap();
+        writeln!(post_file, "declare -x VAR_WITHOUT_QUOTES=simple_value").unwrap();
+        
+        let exports = read_exports_from_files(pre_file.path(), post_file.path());
+        
+        assert_eq!(exports.len(), 3);
+        assert_eq!(exports.get("VAR_WITH_DOUBLE_QUOTES"), Some(&"value with spaces".to_string()));
+        assert_eq!(exports.get("VAR_WITH_SINGLE_QUOTES"), Some(&"single quoted".to_string()));
+        assert_eq!(exports.get("VAR_WITHOUT_QUOTES"), Some(&"simple_value".to_string()));
+    }
+    
+    #[test]
+    fn test_read_exports_from_files_export_format() {
+        use tempfile::NamedTempFile;
+        use std::io::Write;
+        
+        let pre_file = NamedTempFile::new().unwrap();
+        let mut post_file = NamedTempFile::new().unwrap();
+        
+        // Test both "export VAR=" and "declare -x VAR=" formats
+        writeln!(post_file, "export PROJECT_ID=abc123").unwrap();
+        writeln!(post_file, "declare -x API_KEY=secret-key").unwrap();
+        
+        let exports = read_exports_from_files(pre_file.path(), post_file.path());
+        
+        assert_eq!(exports.len(), 2);
+        assert_eq!(exports.get("PROJECT_ID"), Some(&"abc123".to_string()));
+        assert_eq!(exports.get("API_KEY"), Some(&"secret-key".to_string()));
+    }
+    
+    #[test]
+    fn test_read_exports_from_files_empty() {
+        use tempfile::NamedTempFile;
+        
+        let pre_file = NamedTempFile::new().unwrap();
+        let post_file = NamedTempFile::new().unwrap();
+        
+        // Both files are empty
+        let exports = read_exports_from_files(pre_file.path(), post_file.path());
+        
+        assert_eq!(exports.len(), 0);
+    }
+    
+    #[test]
+    fn test_read_exports_from_files_no_new_exports() {
+        use tempfile::NamedTempFile;
+        use std::io::Write;
+        
+        let mut pre_file = NamedTempFile::new().unwrap();
+        let mut post_file = NamedTempFile::new().unwrap();
+        
+        // Same exports in both files (no new variables)
+        let exports_content = "declare -x HOME=\"/home/user\"\ndeclare -x PATH=\"/usr/bin:/bin\"";
+        writeln!(pre_file, "{}", exports_content).unwrap();
+        writeln!(post_file, "{}", exports_content).unwrap();
+        
+        let exports = read_exports_from_files(pre_file.path(), post_file.path());
+        
+        assert_eq!(exports.len(), 0);
+    }
+    
+    #[test]
+    fn test_read_exports_from_files_missing_files() {
+        use std::path::Path;
+        
+        let missing_pre = Path::new("/nonexistent/pre.txt");
+        let missing_post = Path::new("/nonexistent/post.txt");
+        
+        let exports = read_exports_from_files(missing_pre, missing_post);
+        
+        // Should handle missing files gracefully
         assert_eq!(exports.len(), 0);
     }
 }

@@ -42,35 +42,24 @@ function update-package-json() {
 # Run the script.
 ################################################################################
 
-# Create temporary files to store environment snapshots
-PRE_ENV_FILE=$(mktemp)
-POST_ENV_FILE=$(mktemp)
-
 # Capture exported variables before script execution
-export -p | grep -E '(declare -x |export )[A-Za-z_][A-Za-z0-9_]*=' | sort > "$PRE_ENV_FILE"
+export -p | grep -E '(declare -x |export )[A-Za-z_][A-Za-z0-9_]*=' | sort > "$VSS_PRE_ENV_FILE"
 
 # Debug: show pre-execution count if VSS_DEBUG is set
 if [ -n "$VSS_DEBUG" ]; then
-    echo "DEBUG: Pre-execution exports: $(wc -l < "$PRE_ENV_FILE")" >&2
+    echo "DEBUG: Pre-execution exports: $(wc -l < "$VSS_PRE_ENV_FILE")" >&2
 fi
 
 # Source and run the script
 . "${SCRIPT_PATHNAME}"
 
 # Capture exported variables after script execution  
-export -p | grep -E '(declare -x |export )[A-Za-z_][A-Za-z0-9_]*=' | sort > "$POST_ENV_FILE"
+export -p | grep -E '(declare -x |export )[A-Za-z_][A-Za-z0-9_]*=' | sort > "$VSS_POST_ENV_FILE"
 
 # Debug: show post-execution count and diff if VSS_DEBUG is set
 if [ -n "$VSS_DEBUG" ]; then
-    echo "DEBUG: Post-execution exports: $(wc -l < "$POST_ENV_FILE")" >&2
+    echo "DEBUG: Post-execution exports: $(wc -l < "$VSS_POST_ENV_FILE")" >&2
     echo "DEBUG: New/changed exports:" >&2
-    comm -13 "$PRE_ENV_FILE" "$POST_ENV_FILE" >&2
+    comm -13 "$VSS_PRE_ENV_FILE" "$VSS_POST_ENV_FILE" >&2
 fi
 
-# Output file paths for Rust to process the diff
-echo "### VSS_EXPORTS_BEGIN ###"
-echo "PRE_ENV_FILE=${PRE_ENV_FILE}"
-echo "POST_ENV_FILE=${POST_ENV_FILE}"
-echo "### VSS_EXPORTS_END ###"
-
-# Note: Temp files will be cleaned up by Rust after processing

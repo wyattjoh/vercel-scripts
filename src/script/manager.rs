@@ -122,9 +122,7 @@ impl ScriptManager {
             // RUST LEARNING: `filter_map()` combines filter + map, removes None values
             .filter_map(|path_result| {
                 let path = path_result.ok()?; // Early return None if error
-                                              // RUST LEARNING: Method chaining on Option types
-                                              // - `and_then()` is like flatMap for Option
-                if path.extension().and_then(|s| s.to_str()) == Some("sh") {
+                if path.extension() == Some("sh".as_ref()) {
                     Some(path)
                 } else {
                     None
@@ -247,7 +245,8 @@ impl ScriptManager {
         let sorted_indices = toposort(&graph, None).map_err(|_| ScriptError::CircularDependency)?;
 
         // Map sorted node indices back to scripts
-        let mut sorted_scripts = Vec::new();
+        // Use indexing approach for now - more complex optimizations would require restructuring
+        let mut sorted_scripts = Vec::with_capacity(sorted_indices.len());
         for node_idx in sorted_indices {
             let script_idx = graph[node_idx];
             sorted_scripts.push(scripts[script_idx].clone());
